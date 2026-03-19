@@ -534,8 +534,11 @@ async function downloadToOfficial() {
     console.log('📥 開始下載歷史項目至官方帳號流程')
     const blob = await composeHistoryImage(baseImageUrl, fallbackImageUrl)
 
-  // 本地測試：下載到本機
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  const forceUploadOnLocal = Boolean(window.endpoint?.forceUploadOnLocal)
+
+  // 本地測試預設下載到本機；若有開 forceUploadOnLocal，則改走 API
+  if (isLocalhost && !forceUploadOnLocal) {
     downloadToLocal(blob, 'history-detail')
     showMessage('圖片已下載到本機', 'success')
     return
@@ -543,6 +546,11 @@ async function downloadToOfficial() {
 
   // 生產環境：上傳後透過 LIFF 發送（含 logo）
   const uploadedUrl = await uploadImage(blob, props.userId || 'abc', 'history-detail')
+  if (!uploadedUrl) {
+    downloadToLocal(blob, 'history-detail')
+    showMessage('尚未設定圖片上傳 API，已改為下載到本機', 'success')
+    return
+  }
   await sendViaLiff(uploadedUrl)
   console.log('✅ 發送完成')
   showMessage('圖片已成功發送到官方帳號！', 'success')

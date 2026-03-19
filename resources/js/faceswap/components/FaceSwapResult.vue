@@ -506,8 +506,11 @@ async function downloadToOfficial() {
 
     const blob = await composeResultImage(baseImageUrl, fallbackImageUrl)
 
-    // 本地測試：先下載到本機確認圖片
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    const forceUploadOnLocal = Boolean(window.endpoint?.forceUploadOnLocal)
+
+    // 本地測試預設下載到本機；若有開 forceUploadOnLocal，則改走 API
+    if (isLocalhost && !forceUploadOnLocal) {
       downloadToLocal(blob, `faceswap-result-${imageIndex + 1}`)
       showMessage('圖片已下載到本機', 'success')
       return
@@ -517,6 +520,11 @@ async function downloadToOfficial() {
     loadingMessage.value = '正在上傳圖片...'
     loadingSubMessage.value = '請稍候'
     const uploadedUrl = await uploadImage(blob, props.userId || 'abc', `faceswap-result-${imageIndex + 1}`)
+    if (!uploadedUrl) {
+      downloadToLocal(blob, `faceswap-result-${imageIndex + 1}`)
+      showMessage('尚未設定圖片上傳 API，已改為下載到本機', 'success')
+      return
+    }
 
     loadingMessage.value = '正在發送到官方帳號...'
     loadingSubMessage.value = '請稍候'

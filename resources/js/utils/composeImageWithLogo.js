@@ -5,6 +5,23 @@ function resolveBaseURL() {
   return 'https://line.uat.sport115ntp.aitago.tw/api'
 }
 
+function resolveUploadImageUrl() {
+  if (typeof window !== 'undefined' && window.endpoint) {
+    const directUrl = window.endpoint.uploadImageUrl
+    if (typeof directUrl === 'string' && directUrl.trim()) {
+      return directUrl.trim()
+    }
+
+    const uploadPath = window.endpoint.uploadImagePath
+    if (typeof uploadPath === 'string' && uploadPath.trim()) {
+      const baseURL = resolveBaseURL().replace(/\/$/, '')
+      return `${baseURL}/${uploadPath.replace(/^\//, '')}`
+    }
+  }
+
+  return null
+}
+
 async function fetchAsBlobUrl(url) {
   // If it's already a blob url, just use it
   if (typeof url === 'string' && url.startsWith('blob:')) {
@@ -76,16 +93,29 @@ export async function composeImageWithLogo({
 }
 
 export async function uploadPngBlob({ blob, userId = 'abc', filename = 'image-with-logo' }) {
-  const baseURL = resolveBaseURL()
+  const uploadImageUrl = resolveUploadImageUrl()
+  if (!uploadImageUrl) {
+    return null
+  }
+
   const formData = new FormData()
   formData.append('file', blob, `${filename}.png`)
   formData.append('uid', userId)
+  formData.append('userId', userId)
+  formData.append('userName', userId)
+  formData.append('template_id', window.endpoint?.uploadTemplateId || '1')
 
-  const res = await fetch(`${baseURL}/image/sport115ntp`, {
+  const headers = {
+    'X-Requested-With': 'XMLHttpRequest'
+  }
+  const authToken = window.endpoint?.authToken
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`
+  }
+
+  const res = await fetch(uploadImageUrl, {
     method: 'POST',
-    headers: {
-      'X-Requested-With': 'XMLHttpRequest'
-    },
+    headers,
     body: formData
   })
 
@@ -95,6 +125,11 @@ export async function uploadPngBlob({ blob, userId = 'abc', filename = 'image-wi
   }
 
   const data = await res.json()
-  return data?.result?.path || data?.path || data?.data?.url
+  const imageUrl = data?.result?.path || data?.path || data?.data?.url
+  if (!imageUrl) {
+    throw new Error('Upload succeeded but no image URL returned')
+  }
+
+  return imageUrl
 }
 

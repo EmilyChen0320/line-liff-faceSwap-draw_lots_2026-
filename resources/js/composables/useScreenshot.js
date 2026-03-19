@@ -280,17 +280,108 @@ export function useScreenshot() {
     console.log('📥 截圖已下載到本機')
   }
 
+  function resolveUploadImageUrl() {
+    const endpoint = window.endpoint || {}
+    const directUrl = endpoint.uploadImageUrl
+    if (typeof directUrl === 'string' && directUrl.trim()) {
+      return directUrl.trim()
+    }
+
+    const uploadPath = endpoint.uploadImagePath
+    const baseURL = endpoint.baseURL
+    if (typeof uploadPath === 'string' && uploadPath.trim() && typeof baseURL === 'string' && baseURL.trim()) {
+      const normalizedBaseURL = baseURL.replace(/\/$/, '')
+      const normalizedPath = uploadPath.replace(/^\//, '')
+      return `${normalizedBaseURL}/${normalizedPath}`
+    }
+
+    return null
+  }
+
+  function resolveStatusUrl(taskId) {
+    const endpoint = window.endpoint || {}
+    if (typeof endpoint.uploadStatusUrl === 'string' && endpoint.uploadStatusUrl.trim()) {
+      return endpoint.uploadStatusUrl.replace('{taskId}', taskId)
+    }
+
+    const baseURL = typeof endpoint.baseURL === 'string' ? endpoint.baseURL.trim() : ''
+    if (!baseURL) return null
+    return `${baseURL.replace(/\/$/, '')}/face-swap/status/${taskId}`
+  }
+
+  function getAuthHeaders() {
+    const headers = {
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+    const authToken = window.endpoint?.authToken
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`
+    }
+    return headers
+  }
+
+  function extractImageUrl(data) {
+    return data?.result?.path ||
+      data?.path ||
+      data?.data?.url ||
+      data?.result?.image_url ||
+      data?.result?.result_image ||
+      data?.result?.image ||
+      data?.image_url ||
+      data?.result_image ||
+      data?.image ||
+      data?.result?.images?.[0] ||
+      data?.images?.[0] ||
+      null
+  }
+
+  async function pollTaskImageUrl(taskId) {
+    const statusUrl = resolveStatusUrl(taskId)
+    if (!statusUrl) {
+      throw new Error('找不到任務狀態 API，無法取得圖片網址')
+    }
+
+    const maxAttempts = 20
+    const intervalMs = 3000
+
+    for (let i = 0; i < maxAttempts; i += 1) {
+      const res = await fetch(statusUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          ...getAuthHeaders()
+        }
+      })
+
+      if (res.ok) {
+        const statusData = await res.json().catch(() => ({}))
+        const imageUrl = extractImageUrl(statusData)
+        if (imageUrl) return imageUrl
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    }
+
+    throw new Error('等待圖片生成逾時，請稍後重試')
+  }
+
   // 上傳圖片到伺服器
   async function uploadImage(blob, userId = 'abc', filename = 'screenshot') {
+    const uploadImageUrl = resolveUploadImageUrl()
+    if (!uploadImageUrl) {
+      return null
+    }
+
     const formData = new FormData()
     formData.append('file', blob, `${filename}.png`)
     formData.append('uid', userId)
+    formData.append('userId', userId)
+    formData.append('userName', userId)
+    formData.append('template_id', window.endpoint?.uploadTemplateId || '1')
     
-    const response = await fetch(`${window.endpoint.baseURL}/image/sport115ntp`, {
+    const response = await fetch(uploadImageUrl, {
       method: 'POST',
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest'
-      },
+      headers: getAuthHeaders(),
       body: formData
     })
     
@@ -300,7 +391,21 @@ export function useScreenshot() {
     }
     
     const data = await response.json()
-    return data.result.path || data.path || data.data?.url
+    const imageUrl = extractImageUrl(data)
+    if (imageUrl) {
+      return imageUrl
+    }
+
+    const taskId = data?.result?.task_id || data?.task_id || data?.result?.id || data?.id
+    if (taskId) {
+      return pollTaskImageUrl(taskId)
+    }
+
+    if (!imageUrl) {
+      throw new Error('上傳成功，但未取得圖片網址')
+    }
+
+    return imageUrl
   }
 
   // 透過 LIFF 發送圖片

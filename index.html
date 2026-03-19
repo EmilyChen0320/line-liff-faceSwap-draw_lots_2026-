@@ -20,6 +20,16 @@
     window.endpoint = {
       // API 基礎 URL - sport115ntp 測試機
       baseURL: 'https://line.uat.sport115ntp.aitago.tw/api',
+      // 圖片上傳 API，請填入後端實際提供的完整 URL；未設定時會退回本機下載
+      uploadImageUrl: '',
+      // 或者只提供相對路徑，這裡先使用 face-swap 進行上傳流程
+      uploadImagePath: 'face-swap',
+      // 本地測試是否也強制走上傳 API（true: localhost 也打 API）
+      forceUploadOnLocal: true,
+      // 若上傳 API 回傳 task_id，會用此模板輪詢最終圖片 URL
+      uploadStatusUrl: 'https://line.uat.sport115ntp.aitago.tw/api/face-swap/status/{taskId}',
+      // face-swap API 需要 template_id，先用預設 1
+      uploadTemplateId: '1',
       // 認證 Token（開發 / 測試先寫死，之後可改成環境變數）
       authToken: '123',
       // 請求超時時間（毫秒）
