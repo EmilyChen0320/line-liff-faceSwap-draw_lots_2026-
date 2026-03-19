@@ -322,8 +322,13 @@ export function useScreenshot() {
 
   function extractImageUrl(data) {
     return data?.result?.path ||
+      data?.result?.url ||
+      data?.result?.file_url ||
       data?.path ||
+      data?.url ||
+      data?.file_url ||
       data?.data?.url ||
+      data?.data?.file_url ||
       data?.result?.image_url ||
       data?.result?.result_image ||
       data?.result?.image ||

@@ -125,7 +125,14 @@ export async function uploadPngBlob({ blob, userId = 'abc', filename = 'image-wi
   }
 
   const data = await res.json()
-  const imageUrl = data?.result?.path || data?.path || data?.data?.url
+  const imageUrl = data?.result?.path ||
+    data?.result?.url ||
+    data?.result?.file_url ||
+    data?.path ||
+    data?.url ||
+    data?.file_url ||
+    data?.data?.url ||
+    data?.data?.file_url
   if (!imageUrl) {
     throw new Error('Upload succeeded but no image URL returned')
   }
