@@ -11,12 +11,13 @@ import a1art2Img from '../../images/a1art2.png'
 import a1art3Img from '../../images/a1art3.png'
 import a1art4Img from '../../images/a1art4.png'
 import backImg from '../../images/back.png'
-import group13948Img from '../../images/Group13948.png'
 import header1Img from '../../images/header1.png'
 import uploadImg from '../../images/upload.png'
 import generateIconImg from '../../images/GenerateIcon.png'
+import generateButtonIconImg from '../../images/GenerateButtonIcon.png'
 import hpbackgroundImg from '../../images/hpbackground.png'
 import background1Img from '../../images/background1.png'
+import nextButtonImg from '../../images/next_button.png'
 
 // 使用 Vite 的動態導入來獲取圖片 URL，建置時會自動處理雜湊
 export const imageUrls = {
@@ -37,12 +38,13 @@ export const imageUrls = {
   
   // 其他圖片
   back: backImg,
-  Group13948: group13948Img,
   header1: header1Img,
   upload: uploadImg,
   generateIcon: generateIconImg,
+  generateButtonIcon: generateButtonIconImg,
   hpbackground: hpbackgroundImg,
   background1: background1Img,
+  next_button: nextButtonImg,
 };
 
 // 根據模板 ID 獲取圖片

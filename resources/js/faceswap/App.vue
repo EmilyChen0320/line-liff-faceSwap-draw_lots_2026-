@@ -324,7 +324,6 @@ function goBack() {
 
 <style scoped>
 .app {
-  font-family: 'Inter', sans-serif;
   overflow-x: hidden;
   background-color: #333333;
   min-height: 100vh;

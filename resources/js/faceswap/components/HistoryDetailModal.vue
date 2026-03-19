@@ -39,8 +39,8 @@
       <div class="flex-1 flex items-center justify-center">
           <!-- 載入狀態 -->
           <div v-if="isLoading" class="flex flex-col items-center justify-center h-60">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFC1DE] mb-4"></div>
-            <div class="text-[#FFC1DE] text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#BCA9D1] mb-4"></div>
+            <div class="text-[#BCA9D1] text-center">
               <div class="text-lg font-bold mb-2">載入中...</div>
               <div class="text-sm">正在獲取生成詳情</div>
             </div>
@@ -78,7 +78,7 @@
               </div>
             </template>
             <div v-else class="w-full h-60 bg-gray-700 rounded-md flex items-center justify-center">
-              <div class="text-[#FFC1DE] text-center">
+              <div class="text-[#BCA9D1] text-center">
                 <div class="text-lg font-bold mb-2">無法載入圖片</div>
                 <div class="text-xs mt-2">歷史項目: {{ historyDetail?.id || '無ID' }}</div>
                 <div class="text-xs">圖片字段: {{ historyDetail?.image || historyDetail?.image_url || historyDetail?.result_image || '無' }}</div>
@@ -88,12 +88,12 @@
       </div>
 
       <!-- Action Buttons -->
-      <div class="px-12 py-8">
-        <div class="flex gap-3 mb-8">
+      <div class="px-5 py-8">
+        <div class="flex justify-center gap-3 mb-8">
           <!-- Regenerate Button -->
           <button 
-            class="flex-1 h-11 flex justify-center items-center rounded-md cursor-pointer transition-colors text-base font-bold cp-font text-[#0E0E0E]"
-            style="background-color: #FFF3AB;"
+            class="w-[173px] h-[44px] flex justify-center items-center cursor-pointer transition-colors text-base font-bold cp-font text-[#0E0E0E]"
+            style="border-radius: 30px; background: var(--Core-Purple-300, #BCA9D1);"
             @click="regenerate"
           >
             重新生成
@@ -101,8 +101,12 @@
           
           <!-- Download Button -->
           <button 
-            class="flex-1 h-11 flex justify-center items-center rounded-md cursor-pointer transition-all duration-300 text-base font-bold hover:shadow-lg"
-            style="background: linear-gradient(to bottom, #FFC1DE 0%, #FD79B5 100%);"
+            class="w-[173px] h-[44px] flex justify-center items-center cursor-pointer transition-all duration-300 text-base font-bold hover:shadow-lg"
+            :style="
+              historyDetail && historyDetail.status === 'completed' && !isDownloading
+                ? 'border-radius: 30px; background: var(--Linear, linear-gradient(90deg, var(--Core-Purple-600, #674598) 0%, var(--Core-Purple-300, #BCA9D1) 100%)); box-shadow: -2px 3px 9px 0 #BCA9D1;'
+                : 'border-radius: 30px; background: #666666;'
+            "
             :class="
               historyDetail && historyDetail.status === 'completed' && !isDownloading
                 ? ''
@@ -111,13 +115,13 @@
             @click="downloadToOfficial"
             :disabled="!historyDetail || historyDetail.status !== 'completed' || isDownloading"
           >
-            <div v-if="isDownloading" class="flex items-center gap-2">
+            <div v-if="isDownloading" class="flex items-center gap-[10px]">
               <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-[#0E0E0E]"></div>
-              <div class="cp-font text-[#0E0E0E]">
+              <div class="cp-font text-white">
                 處理中...
               </div>
             </div>
-            <div v-else class="cp-font text-[#0E0E0E]">
+            <div v-else class="cp-font text-white">
               下載至官方帳號
             </div>
           </button>

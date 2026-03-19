@@ -163,14 +163,23 @@
           class="self-end mt-16 w-full text-base font-bold whitespace-nowrap rounded-md max-w-[336px]"
         >
           <div
-            class="flex gap-5 justify-center items-center px-36 py-3.5 rounded-md min-h-11 cursor-pointer transition-all duration-300 hover:shadow-lg"
-            :style="isAtLimit ? 'background-color: #666666;' : 'background: linear-gradient(to bottom, #FFC1DE 0%, #FD79B5 100%);'"
+            class="flex justify-center items-center w-full cursor-pointer transition-all duration-300 hover:shadow-lg"
+            :style="isAtLimit ? 'background-color: #666666;' : ''"
             :class="(selectedTemplate && !isAtLimit) ? '' : 'opacity-50 cursor-not-allowed'"
             @click="nextStep"
           >
-            <div class="self-stretch my-auto cp-font text-[#0E0E0E]" data-name="下一步">
-              {{ isAtLimit ? '已達使用上限' : '下一步' }}
-            </div>
+            <template v-if="isAtLimit">
+              <div class="px-8 py-3.5 rounded-full cp-font text-white bg-[#666666]" data-name="已達使用上限">
+                已達使用上限
+              </div>
+            </template>
+            <template v-else>
+              <img
+                :src="imageUrls.next_button"
+                alt="下一步"
+                class="w-full max-w-[336px] h-[44px] object-cover rounded-full"
+              />
+            </template>
           </div>
         </div>
       </div>
@@ -210,8 +219,16 @@ const selectedTemplate = ref("");
 const showHistoryPage = ref(false);
 const templates = ref({});
 
-// 計算是否已達使用量上限
+// 檢查是否為 dev_user（本地 / 測試帳號不受使用量限制）
+const isDevUser = computed(() => {
+  return props.userId && typeof props.userId === 'string' && props.userId.startsWith('dev_user_');
+});
+
+// 計算是否已達使用量上限（dev_user 不受限制）
 const isAtLimit = computed(() => {
+  if (isDevUser.value) {
+    return false;
+  }
   return props.userUsage >= appConfig.maxUsageLimit;
 });
 

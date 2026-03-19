@@ -11,11 +11,6 @@
       backgroundRepeat: 'no-repeat' 
     }"
   >
-    <img
-      :src="imageUrls.Group13948"
-      alt="Hero Image"
-      class="max-w-full max-h-full w-auto h-auto object-contain"
-    />
   </div>
 </template>
 

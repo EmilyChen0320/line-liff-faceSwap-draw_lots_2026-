@@ -33,12 +33,12 @@
           <img 
             :src="imageUrls.back"
             alt="Back Arrow"
-            class="w-[26px] h-[26px] object-contain"
+            class="w-[26px] h-[26px] object-contain brightness-0"
           />
         </button>
         
         <!-- Title -->
-        <div class="text-xl font-bold cp-font text-[#FFFFFF]">
+        <div class="text-xl font-bold cp-font text-[#0E0E0E]">
           圖片生成紀錄
         </div>
       </div>
@@ -51,8 +51,8 @@
     <div class="flex-1 px-6 py-8">
       <!-- Loading state -->
       <div v-if="isLoading" class="flex flex-col items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFC1DE] mb-4"></div>
-        <div class="text-[#FFC1DE] text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#BCA9D1] mb-4"></div>
+        <div class="text-[#BCA9D1] text-center">
           <div class="text-lg font-bold mb-2">載入中...</div>
           <div class="text-sm">正在獲取您的生成紀錄</div>
         </div>
@@ -85,7 +85,8 @@
         <div 
           v-for="(item, index) in historyData" 
           :key="item.id || index"
-          class="flex w-full h-40 p-4 items-center gap-3 bg-[#6A6A6A] rounded-[5px] cursor-pointer hover:bg-[#7A7A7A] transition-colors"
+          class="flex w-full p-4 items-center gap-3 cursor-pointer transition-colors"
+          style="border-radius: 6px; background: var(--Core-Purple-300, #BCA9D1);"
           @click="viewHistoryItem(item)"
         >
           <div class="flex w-full flex-col items-start gap-3">
@@ -93,10 +94,11 @@
               v-if="getHistoryImage(item)"
               :src="getHistoryImage(item)" 
               :alt="`生成圖片 ${index + 1}`" 
-              class="h-24 w-full object-cover rounded"
+              class="w-full object-cover rounded"
+              style="height: 166px;"
               @error="handleImageError"
             />
-            <div v-else class="h-24 w-full bg-[#444444] rounded flex items-center justify-center">
+            <div v-else class="w-full bg-[#444444] rounded flex items-center justify-center" style="height: 166px;">
               <span class="text-[#999999] text-xs">無圖片</span>
             </div>
             <div class="text-white font-normal text-xs">

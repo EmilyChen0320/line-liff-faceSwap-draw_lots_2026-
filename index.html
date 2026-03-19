@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>face swap</title>
   
+  <!-- Google Fonts: Noto Sans TC (繁體中文) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
   <!-- LIFF SDK -->
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   
@@ -13,9 +18,9 @@
     // ===== API 配置 =====
     // 這些配置可以在打包後的 dist 目錄中直接修改
     window.endpoint = {
-      // API 基礎 URL - 修改這裡來改變 API 伺服器地址
-      baseURL: 'https://stg-line-crm.fanpokka.ai/api',
-      // 認證 Token
+      // API 基礎 URL - sport115ntp 測試機
+      baseURL: 'https://line.uat.sport115ntp.aitago.tw/api',
+      // 認證 Token（開發 / 測試先寫死，之後可改成環境變數）
       authToken: '123',
       // 請求超時時間（毫秒）
       timeout: 30000,
@@ -23,8 +28,8 @@
       debug: true,
       
       // ===== 圖片處理 API 配置 =====
-      // 圖片處理 API 端點 - 修改這裡來改變圖片處理服務器
-      imageProcessApi: 'https://stg-api.fanpokka.ai/api/static-resource',
+      // 圖片處理 API 端點 - sport115ntp 測試機
+      imageProcessApi: 'https://api.uat.sport115ntp.aitago.tw/api/static-resource',
       // 圖片處理參數 - 修改這裡來調整圖片處理效果
       imageProcessParams: {
         scale: 2,        // 圖片縮放比例：0.5, 1, 1.5, 2
@@ -37,13 +42,15 @@
       enableImageProcessing: true,
       
       // ===== LIFF 配置 =====
-      // LIFF ID - 修改這裡來改變 LIFF 應用 ID
+      // LIFF ID - sport115ntp 活動專用（之後可再依實際調整）
       liffId: '2008136985-zZmBPWg1',
       // LINE Basic ID - 修改這裡來改變 LINE 官方帳號 ID
       basicId: '@299fvzdf',
       // 是否啟用 LIFF 功能
       enableLiff: true,
-      testUserId: 'U1df56c5a2967d607e396d997dcca1c0b'
+      // 測試用 userId（本地 / Vercel 測試會優先使用）
+      // 建議維持 dev_user_ 開頭，方便在前端放寬限制
+      testUserId: 'dev_user_sport115ntp_001'
     };
     
     // 輸出配置到控制台（如果啟用調試模式）
@@ -80,6 +87,7 @@
     body {
       background-color: #333333;
       min-height: 100vh;
+      font-family: "Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     
     #vue-root {

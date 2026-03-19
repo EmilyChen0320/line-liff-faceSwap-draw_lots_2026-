@@ -97,10 +97,11 @@
             </h3>
           </div>
 
-          <!-- Upload Area -->
+          <!-- Upload Area：虛線邊框 + 淺紫底色 -->
           <div class="mb-6">
             <div
-              class="flex h-[200px] flex-col items-center justify-center gap-5 gradient-border-dashed cursor-pointer transition-colors rounded-md"
+              class="flex h-[200px] flex-col items-center justify-center gap-5 cursor-pointer transition-colors"
+              style="border-radius: 12px; border: 3.5px dashed var(--Core-Purple-600, #674598); background: var(--Core-Purple-300, #BCA9D1);"
               @click="triggerFileUpload"
               @dragover.prevent
               @drop.prevent="handleDrop"
@@ -121,12 +122,16 @@
                   支援 JPG, PNG 格式
                 </div>
               </div>
-              <div v-else class="w-full h-full">
+              <div
+                v-else
+                class="w-full h-full rounded-[12px] overflow-hidden"
+                style="background: rgba(188, 169, 209, 0.30); border: 3.5px dashed var(--Core-Purple-600, #674598);"
+              >
                 <!-- 圖片預覽 -->
                 <img
                   :src="uploadedImagePreview"
                   :alt="uploadedImage.name"
-                  class="w-full h-full object-contain rounded-md bg-gray-800"
+                  class="w-full h-full object-contain"
                 />
               </div>
             </div>
@@ -134,8 +139,11 @@
 
           <!-- Upload Instructions -->
           <div class="mb-8">
-            <h4 class="text-sm font-bold text-white mb-3">上傳注意事項：</h4>
-            <div class="text-[13px] font-normal text-white space-y-2">
+            <h4 class="text-sm font-bold text-black mb-3">上傳注意事項：</h4>
+            <div
+              class="space-y-2"
+              style="color: var(--text-100, #333); font-family: 'Noto Sans Georgian'; font-size: 13.5px; font-style: normal; font-weight: 700; line-height: 22px;"
+            >
               <div>1.請上傳單人清晰正面照，避免多人合照，以利準確辨識</div>
               <div>2.僅支援人像照片，請勿上傳風景、動物或其他非人物圖片</div>
               <div>3.請確保臉部五官完整可見，避免口罩、手部、頭髮等遮擋</div>
@@ -144,29 +152,33 @@
           </div>
 
           <!-- Action Buttons -->
-          <div class="flex gap-3 mb-8">
+          <div class="flex justify-center gap-3 mb-8">
+            <!-- 重選範本按鈕 -->
             <button
-              class="flex-1 h-11 px-3 py-3 flex justify-center items-center rounded-md cursor-pointer transition-colors text-base font-bold cp-font text-[#0E0E0E]"
-              style="background-color: #FFF3AB;"
+              class="w-[173px] h-[44px] flex justify-center items-center cursor-pointer transition-opacity text-base font-bold cp-font text-[#0E0E0E]"
+              style="border-radius: 30px; background: var(--Core-Purple-300, #BCA9D1);"
               @click="goBack"
             >
               重選範本
             </button>
+
+            <!-- 開始生成按鈕 -->
             <button
-              class="flex-1 h-11 px-3 py-3 flex justify-center items-center rounded-md cursor-pointer transition-all duration-300 text-base font-bold hover:shadow-lg"
-              :style="isAtLimit ? 'background-color: #666666;' : 'background: linear-gradient(to bottom, #FFC1DE 0%, #FD79B5 100%);'"
-              :class="canGenerate ? '' : 'opacity-50 cursor-not-allowed'"
+              class="w-[173px] h-[44px] flex justify-center items-center cursor-pointer transition-all duration-300 text-base font-bold cp-font"
+              :style="(canGenerate && !isAtLimit) 
+                ? 'border-radius: 30px; background: var(--Linear, linear-gradient(90deg, var(--Core-Purple-600, #674598) 0%, var(--Core-Purple-300, #BCA9D1) 100%)); box-shadow: -2px 3px 9px 0 #BCA9D1;' 
+                : 'border-radius: 30px; background: #666666;'"
+              :class="(canGenerate && !isAtLimit) ? '' : 'opacity-60 cursor-not-allowed'"
               @click="generateFaceSwap"
-              :disabled="!canGenerate"
+              :disabled="!canGenerate || isAtLimit"
             >
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-[10px]">
                 <img
-                  v-if="!isAtLimit"
-                  :src="imageUrls.generateIcon"
+                  :src="imageUrls.generateButtonIcon"
+                  alt=""
                   class="w-5 h-5 object-contain"
-                  alt="生成圖標"
                 />
-                <span class="cp-font text-[#0E0E0E]">
+                <span class="cp-font text-white">
                   {{ isAtLimit ? '已達使用上限' : (isGenerating ? '生成中...' : '開始生成') }}
                 </span>
               </div>
@@ -261,20 +273,28 @@ const isGenerating = ref(false);
 const showFirstDialog = ref(false);
 const showSecondDialog = ref(false);
 
+// 檢查是否為 dev_user（本地 / 測試帳號不受使用量限制）
+const isDevUser = computed(() => {
+  return props.userId && typeof props.userId === 'string' && props.userId.startsWith('dev_user_');
+});
+
 
 const canGenerate = computed(() => {
   // 檢查是否已選擇模板和上傳圖片
   const hasTemplateAndImage = props.selectedTemplate && uploadedImage.value;
-  // 檢查是否未達到使用量上限
-  const underLimit = props.userUsage < appConfig.maxUsageLimit;
+  // 檢查是否未達到使用量上限（dev_user 不受限制）
+  const underLimit = isDevUser.value || props.userUsage < appConfig.maxUsageLimit;
   // 檢查是否正在生成中（防止重複點擊）
   const notGenerating = !isGenerating.value;
   
   return hasTemplateAndImage && underLimit && notGenerating;
 });
 
-// 計算是否已達上限
+// 計算是否已達上限（dev_user 不受限制）
 const isAtLimit = computed(() => {
+  if (isDevUser.value) {
+    return false;
+  }
   return props.userUsage >= appConfig.maxUsageLimit;
 });
 

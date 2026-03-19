@@ -6,7 +6,7 @@
 const getApiConfig = () => {
     if (typeof window !== 'undefined' && window.endpoint) {
         return {
-            baseURL: window.endpoint.baseURL || 'https://stg-line-crm.fanpokka.ai/api',
+            baseURL: window.endpoint.baseURL || 'https://line.uat.sport115ntp.aitago.tw/api',
             authToken: window.endpoint.authToken || '123',
             timeout: window.endpoint.timeout || 30000
         };
@@ -14,7 +14,7 @@ const getApiConfig = () => {
     
     // 默認配置
     return {
-        baseURL: 'https://stg-line-crm.fanpokka.ai/api',
+        baseURL: 'https://line.uat.sport115ntp.aitago.tw/api',
         authToken: '123',
         timeout: 30000
     };
@@ -27,7 +27,8 @@ export const roadshowService = {
     async getTemplates() {
         try {
             const config = getApiConfig();
-            const url = `${config.baseURL}/fancy_frontier/templates`;
+            // sport115ntp 新版樣板列表
+            const url = `${config.baseURL}/face-swap/templates`;
             
             const response = await fetch(url, {
                 method: 'GET',
@@ -62,7 +63,7 @@ export const roadshowService = {
     async getUserHistory(userId) {
         try {
             const config = getApiConfig();
-            const url = `${config.baseURL}/fancy_frontier/user/${userId}/avatars`;
+            const url = `${config.baseURL}/face-swap/user/${userId}/avatars`;
             
             const response = await fetch(url, {
                 method: 'GET',
@@ -119,7 +120,15 @@ export const roadshowService = {
     async generateAvatar(formData) {
         try {
             const config = getApiConfig();
-            const url = `${config.baseURL}/fancy_frontier`;
+            const url = `${config.baseURL}/face-swap`;
+            
+            // 處理測試用戶 ID：如果前端是純 dev_user_，使用後端支援的測試格式
+            const currentUserId = formData.get('userId');
+            if (currentUserId && currentUserId === 'dev_user_') {
+                const testUserId = (typeof window !== 'undefined' && window.endpoint?.testUserId) || 'dev_user_';
+                formData.set('userId', testUserId);
+                console.log('🔧 使用測試 userId（後端支援格式）:', testUserId);
+            }
             
             const response = await fetch(url, {
                 method: 'POST',
@@ -192,7 +201,7 @@ export const roadshowService = {
     async checkTaskStatus(taskId) {
         try {
             const config = getApiConfig();
-            const url = `${config.baseURL}/fancy_frontier/status/${taskId}`;
+            const url = `${config.baseURL}/face-swap/status/${taskId}`;
             
             const response = await fetch(url, {
                 method: 'GET',
