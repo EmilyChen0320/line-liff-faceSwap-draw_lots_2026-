@@ -250,6 +250,7 @@ const selectedImageIndex = ref(0)
 const resultImageRefs = ref({})
 const brandedImageObjectUrls = ref([])
 const brandedImageFlags = ref({})
+const brandedUploadedUrls = ref({})
 
 // 載入狀態訊息
 const loadingMessage = ref('檢查任務狀態...')
@@ -313,13 +314,14 @@ async function buildBrandedImageUrl(imageUrl, index) {
       logoWidthRatio: 0.15
     })
 
-    const uploadedUrl = await uploadImage(blob, props.userId || 'abc', `faceswap-result-${index + 1}`)
-    if (uploadedUrl) {
-      return uploadedUrl
-    }
-
     const objectUrl = URL.createObjectURL(blob)
     brandedImageObjectUrls.value.push(objectUrl)
+
+    const uploadedUrl = await uploadImage(blob, props.userId || 'abc', `faceswap-result-${index + 1}`)
+    if (uploadedUrl) {
+      brandedUploadedUrls.value[objectUrl] = uploadedUrl
+    }
+
     return objectUrl
   }
 
@@ -448,6 +450,7 @@ async function handleTaskStatus(data) {
         imageLoadErrors.value = {}
         imageLoadedStates.value = {}
         brandedImageFlags.value = {}
+        brandedUploadedUrls.value = {}
 
         revokeBrandedObjectUrls()
         loadingMessage.value = '正在套用 Logo...'
@@ -528,10 +531,11 @@ async function downloadToOfficial() {
       return
     }
 
-    if (brandedImageFlags.value[displayImageUrl] && !displayImageUrl.startsWith('blob:')) {
+    const uploadedBrandedUrl = brandedUploadedUrls.value[displayImageUrl]
+    if (uploadedBrandedUrl) {
       loadingMessage.value = '正在發送到官方帳號...'
       loadingSubMessage.value = '請稍候'
-      await sendViaLiff(displayImageUrl)
+      await sendViaLiff(uploadedBrandedUrl)
       showMessage('圖片已成功發送到官方帳號！', 'success')
       return
     }
