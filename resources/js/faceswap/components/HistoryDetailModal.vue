@@ -65,7 +65,10 @@
             <!-- Result Image -->
             <template v-if="getHistoryImage(historyDetail)">
               <div class="mb-4">
-                <div class="relative">
+                <div
+                  ref="historyImageContainerRef"
+                  class="relative"
+                >
                   <img 
                     class="w-full object-contain rounded-md" 
                     :src="getHistoryImage(historyDetail)" 
@@ -142,7 +145,6 @@
 import { ref, watch, onMounted } from 'vue'
 import { imageUrls } from '@/config/imageUrls'
 import { useScreenshot } from '@/composables/useScreenshot'
-import { composeImageWithLogo } from '@/utils/composeImageWithLogo'
 import UsageCounter from './UsageCounter.vue'
 
 const props = defineProps({
@@ -171,8 +173,9 @@ const error = ref(null)
 const historyDetail = ref(null)
 const imageLoadErrors = ref({})
 const imageLoadedStates = ref({})
+const historyImageContainerRef = ref(null)
 
-const { downloadToLocal, uploadImage } = useScreenshot()
+const { captureScreenshot, compressImage, downloadToLocal, uploadImage } = useScreenshot()
 // 截圖相關狀態
 const isDownloading = ref(false)
 
@@ -185,29 +188,6 @@ function showMessage(message, type = 'info') {
     alert(message)
   } else {
     console.log(message)
-  }
-}
-
-async function composeHistoryImage(primaryUrl, fallbackUrl) {
-  try {
-    return await composeImageWithLogo({
-      baseImageUrl: primaryUrl,
-      logoUrl: imageUrls.logo,
-      marginPx: 20,
-      logoWidthRatio: 0.15
-    })
-  } catch (primaryError) {
-    if (!fallbackUrl || fallbackUrl === primaryUrl) {
-      throw primaryError
-    }
-
-    console.warn('⚠️ 主要歷史圖片來源合成失敗，改用備援來源:', primaryError)
-    return composeImageWithLogo({
-      baseImageUrl: fallbackUrl,
-      logoUrl: imageUrls.logo,
-      marginPx: 20,
-      logoWidthRatio: 0.15
-    })
   }
 }
 
@@ -454,7 +434,7 @@ function handleResultImageError(event) {
 }
 
 function shouldShowLogo(imageUrl) {
-  return Boolean(imageUrl && imageLoadedStates.value[imageUrl] && !imageLoadErrors.value[imageUrl])
+  return Boolean(imageUrl && !imageLoadErrors.value[imageUrl])
 }
 
 // 格式化日期
@@ -521,18 +501,19 @@ async function downloadToOfficial() {
     return
   }
 
-  // 保留原始圖片作為備援來源，優先使用畫面同源的處理後 URL
-  const rawImageUrl = historyDetail.value?.image || historyDetail.value?.image_url || historyDetail.value?.result_image || historyDetail.value?.generated_image
-  const originalImageUrl = rawImageUrl?.startsWith('/') ? `https://stg-line-crm.fanpokka.ai${rawImageUrl}` : rawImageUrl
-  const baseImageUrl = displayImageUrl || originalImageUrl
-  const fallbackImageUrl = originalImageUrl && originalImageUrl !== baseImageUrl
-    ? originalImageUrl
-    : null
-
   try {
     isDownloading.value = true
     console.log('📥 開始下載歷史項目至官方帳號流程')
-    const blob = await composeHistoryImage(baseImageUrl, fallbackImageUrl)
+    if (!historyImageContainerRef.value) {
+      throw new Error('找不到歷史圖片區域，請稍後再試')
+    }
+
+    const canvas = await captureScreenshot(historyImageContainerRef.value, {
+      padding: 0,
+      scaleFactor: 1,
+      backgroundColor: null
+    })
+    const blob = await compressImage(canvas)
 
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   const forceUploadOnLocal = Boolean(window.endpoint?.forceUploadOnLocal)

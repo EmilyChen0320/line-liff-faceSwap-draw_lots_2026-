@@ -119,6 +119,7 @@
               <div v-for="(image, index) in generatedImages" :key="index" class="mb-4">
                 <div 
                   class="relative cursor-pointer"
+                  :ref="(el) => setResultImageRef(el, index)"
                   @click="selectedImageIndex = index"
                 >
                   <img 
@@ -209,7 +210,6 @@ import UsageCounter from './UsageCounter.vue'
 import { roadshowService } from '../../services/roadshowService.js'
 import { imageUrls } from '@/config/imageUrls'
 import { useScreenshot } from '@/composables/useScreenshot'
-import { composeImageWithLogo } from '@/utils/composeImageWithLogo'
 
 // Define props
 const props = defineProps({
@@ -246,6 +246,7 @@ const originalImages = ref([]) // 保存原始圖片 URL 用於下載
 const imageLoadErrors = ref({})
 const imageLoadedStates = ref({})
 const selectedImageIndex = ref(0)
+const resultImageRefs = ref({})
 
 // 載入狀態訊息
 const loadingMessage = ref('檢查任務狀態...')
@@ -265,28 +266,13 @@ function showMessage(message, type = 'info') {
   }
 }
 
-const { downloadToLocal, uploadImage } = useScreenshot()
+const { captureScreenshot, compressImage, downloadToLocal, uploadImage } = useScreenshot()
 
-async function composeResultImage(primaryUrl, fallbackUrl) {
-  try {
-    return await composeImageWithLogo({
-      baseImageUrl: primaryUrl,
-      logoUrl: imageUrls.logo,
-      marginPx: 20,
-      logoWidthRatio: 0.15
-    })
-  } catch (primaryError) {
-    if (!fallbackUrl || fallbackUrl === primaryUrl) {
-      throw primaryError
-    }
-
-    console.warn('⚠️ 主要圖片來源合成失敗，改用備援來源:', primaryError)
-    return composeImageWithLogo({
-      baseImageUrl: fallbackUrl,
-      logoUrl: imageUrls.logo,
-      marginPx: 20,
-      logoWidthRatio: 0.15
-    })
+function setResultImageRef(el, index) {
+  if (el) {
+    resultImageRefs.value[index] = el
+  } else {
+    delete resultImageRefs.value[index]
   }
 }
 
@@ -489,22 +475,27 @@ async function downloadToOfficial() {
       ? selectedImageIndex.value 
       : 0
 
-    const originalImageUrl = originalImages.value[imageIndex]
     const displayImageUrl = generatedImages.value[imageIndex]
-    const baseImageUrl = displayImageUrl || originalImageUrl
-    const fallbackImageUrl = originalImageUrl && originalImageUrl !== baseImageUrl
-      ? originalImageUrl
-      : null
-
-    if (!baseImageUrl) {
+    if (!displayImageUrl) {
       showMessage('無法獲取圖片 URL，無法下載', 'error')
+      return
+    }
+
+    const targetContainer = resultImageRefs.value[imageIndex]
+    if (!targetContainer) {
+      showMessage('找不到結果圖片區域，請稍後再試', 'error')
       return
     }
 
     loadingMessage.value = '正在處理圖片...'
     loadingSubMessage.value = '請稍候'
 
-    const blob = await composeResultImage(baseImageUrl, fallbackImageUrl)
+    const canvas = await captureScreenshot(targetContainer, {
+      padding: 0,
+      scaleFactor: 1,
+      backgroundColor: null
+    })
+    const blob = await compressImage(canvas)
 
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     const forceUploadOnLocal = Boolean(window.endpoint?.forceUploadOnLocal)
@@ -560,7 +551,7 @@ function handleImageLoad(event) {
 }
 
 function shouldShowLogo(imageUrl) {
-  return Boolean(imageUrl && imageLoadedStates.value[imageUrl] && !imageLoadErrors.value[imageUrl])
+  return Boolean(imageUrl && !imageLoadErrors.value[imageUrl])
 }
 
 function getTemplateImage(templateId) {

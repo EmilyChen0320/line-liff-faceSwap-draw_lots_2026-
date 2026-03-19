@@ -201,55 +201,68 @@ export function useScreenshot() {
   }
 
   // 截圖功能
-  async function captureScreenshot(container) {
+  async function captureScreenshot(container, options = {}) {
     if (!container) {
       throw new Error('找不到截圖區域')
     }
-    
+
+    const {
+      padding = 40,
+      scaleFactor = 0.8,
+      backgroundColor = '#333333'
+    } = options
+
     // 預載入並轉換跨域圖片
     const originalSrcs = await preloadAndConvertImages(container)
-    
-    // 使用高解析度配置
-    const originalCanvas = await html2canvas(container, {
-      backgroundColor: '#333333',
-      scale: 2,        // 調整為 2 倍解析度，減少圖片寬度
-      logging: false,
-      useCORS: true,          // 啟用 CORS 支援
-      allowTaint: false,      // 避免被視為汙染畫布
-      foreignObjectRendering: false // 關閉，避免黑屏問題
-    })
-    
-    // 恢復原始圖片 src
-    restoreOriginalImages(originalSrcs)
-    
-    // 創建高品質 Canvas 並添加邊距，同時縮放圖片
-    const padding = 40
-    const scaleFactor = 0.8  // 縮放係數，0.8 = 80% 寬度
-    const newCanvas = document.createElement('canvas')
-    const ctx = newCanvas.getContext('2d')
-    
-    // 設定新 Canvas 的尺寸（縮放後的尺寸 + 邊距）
-    newCanvas.width = (originalCanvas.width * scaleFactor) + (padding * 2)
-    newCanvas.height = (originalCanvas.height * scaleFactor) + (padding * 2)
-    
-    // 設定高品質渲染
-    ctx.imageSmoothingEnabled = true
-    ctx.imageSmoothingQuality = 'high'
-    
-    // 填充背景色
-    ctx.fillStyle = '#333333'
-    ctx.fillRect(0, 0, newCanvas.width, newCanvas.height)
-    
-    // 將原始 Canvas 縮放後繪製到新 Canvas 上，留出邊距
-    ctx.drawImage(
-      originalCanvas, 
-      padding, 
-      padding, 
-      originalCanvas.width * scaleFactor, 
-      originalCanvas.height * scaleFactor
-    )
-    
-    return newCanvas
+
+    try {
+      // 使用高解析度配置
+      const originalCanvas = await html2canvas(container, {
+        backgroundColor,
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: false,
+        foreignObjectRendering: false
+      })
+
+      // 不需要額外邊距或縮放時，直接回傳原圖
+      if (padding === 0 && scaleFactor === 1) {
+        return originalCanvas
+      }
+
+      // 創建高品質 Canvas 並添加邊距，同時縮放圖片
+      const newCanvas = document.createElement('canvas')
+      const ctx = newCanvas.getContext('2d')
+
+      // 設定新 Canvas 的尺寸（縮放後的尺寸 + 邊距）
+      newCanvas.width = (originalCanvas.width * scaleFactor) + (padding * 2)
+      newCanvas.height = (originalCanvas.height * scaleFactor) + (padding * 2)
+
+      // 設定高品質渲染
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
+
+      // 填充背景色
+      if (backgroundColor) {
+        ctx.fillStyle = backgroundColor
+        ctx.fillRect(0, 0, newCanvas.width, newCanvas.height)
+      }
+
+      // 將原始 Canvas 縮放後繪製到新 Canvas 上，留出邊距
+      ctx.drawImage(
+        originalCanvas,
+        padding,
+        padding,
+        originalCanvas.width * scaleFactor,
+        originalCanvas.height * scaleFactor
+      )
+
+      return newCanvas
+    } finally {
+      // 恢復原始圖片 src
+      restoreOriginalImages(originalSrcs)
+    }
   }
 
   // 圖片壓縮功能 - 高品質 PNG 輸出
