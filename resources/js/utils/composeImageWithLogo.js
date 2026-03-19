@@ -81,7 +81,7 @@ export async function uploadPngBlob({ blob, userId = 'abc', filename = 'image-wi
   formData.append('file', blob, `${filename}.png`)
   formData.append('uid', userId)
 
-  const res = await fetch(`${baseURL}/roadshow/files`, {
+  const res = await fetch(`${baseURL}/image/sport115ntp`, {
     method: 'POST',
     headers: {
       'X-Requested-With': 'XMLHttpRequest'

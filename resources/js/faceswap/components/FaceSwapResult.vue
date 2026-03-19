@@ -214,7 +214,7 @@ import { composeImageWithLogo } from '@/utils/composeImageWithLogo'
 // Define props
 const props = defineProps({
   taskId: {
-    type: String,
+    type: [String, Number],
     default: ''
   },
   userId: {
@@ -353,7 +353,8 @@ async function checkTaskStatus() {
     loadingMessage.value = '檢查任務狀態...'
     loadingSubMessage.value = '請稍候'
     
-    const result = await roadshowService.checkTaskStatus(props.taskId)
+    const normalizedTaskId = String(props.taskId)
+    const result = await roadshowService.checkTaskStatus(normalizedTaskId)
     
     // 新 API 響應格式: { success: true, id, status, images, template_id, result }
     if (result && (result.success || result.status === 'completed' || result.status === 'pending' || result.status === 'processing')) {
