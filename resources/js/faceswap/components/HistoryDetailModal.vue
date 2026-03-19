@@ -65,13 +65,20 @@
             <!-- Result Image -->
             <template v-if="getHistoryImage(historyDetail)">
               <div class="mb-4">
-                <img 
-                  class="w-full object-contain rounded-md" 
-                  :src="getHistoryImage(historyDetail)" 
-                  alt="生成結果"
-                  @error="handleResultImageError"
-                  @load="handleImageLoad"
-                />
+                <div class="relative">
+                  <img 
+                    class="w-full object-contain rounded-md" 
+                    :src="getHistoryImage(historyDetail)" 
+                    alt="生成結果"
+                    @error="handleResultImageError"
+                    @load="handleImageLoad"
+                  />
+                  <img
+                    :src="imageUrls.logo"
+                    alt="logo"
+                    class="absolute top-[20px] right-[20px] w-[15%] pointer-events-none select-none"
+                  />
+                </div>
                 <div v-if="imageLoadErrors[getHistoryImage(historyDetail)]" class="text-center text-red-400 text-sm mt-2">
                   ⚠️ 圖片載入失敗，請檢查網路連線
                 </div>
@@ -134,6 +141,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { roadshowService } from '../../services/roadshowService.js'
 import { imageUrls } from '@/config/imageUrls'
+import { composeImageWithLogo, uploadPngBlob } from '@/utils/composeImageWithLogo'
 import UsageCounter from './UsageCounter.vue'
 
 const props = defineProps({
@@ -624,11 +632,43 @@ async function downloadToOfficial() {
       return
     }
     
-    // 生產環境：透過 LIFF 發送（使用顯示用的處理後 URL）
-    await sendViaLiff(displayImageUrl)
-    console.log('✅ 發送完成')
-    
-    showMessage('圖片已成功發送到官方帳號！', 'success')
+  // 組合（加 logo）
+  const composedBlob = await composeImageWithLogo({
+    baseImageUrl: downloadImageUrl,
+    logoUrl: imageUrls.logo,
+    marginPx: 20,
+    logoWidthRatio: 0.15
+  })
+
+  // 本地測試：下載到本機
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    const blobUrl = window.URL.createObjectURL(composedBlob)
+    const link = document.createElement('a')
+    link.href = blobUrl
+    link.download = `history-detail-${Date.now()}.png`
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    setTimeout(() => {
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(blobUrl)
+    }, 100)
+
+    console.log('✅ 圖片已下載到本機（含 logo）')
+    showMessage('圖片已下載到本機', 'success')
+    return
+  }
+
+  // 生產環境：上傳後透過 LIFF 發送（含 logo）
+  const uploadedUrl = await uploadPngBlob({
+    blob: composedBlob,
+    userId: props.userId || 'abc',
+    filename: 'history-detail'
+  })
+
+  await sendViaLiff(uploadedUrl)
+  console.log('✅ 發送完成')
+  showMessage('圖片已成功發送到官方帳號！', 'success')
     
   } catch (error) {
     console.error('❌ 下載流程失敗:', error)

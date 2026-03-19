@@ -128,6 +128,11 @@
                     @error="handleImageError"
                     @load="handleImageLoad"
                   />
+                  <img
+                    :src="imageUrls.logo"
+                    alt="logo"
+                    class="absolute top-[20px] right-[20px] w-[15%] pointer-events-none select-none"
+                  />
                 </div>
                 <div v-if="imageLoadErrors[image]" class="text-center text-red-400 text-sm mt-2">
                   ⚠️ 圖片載入失敗，請檢查網路連線
@@ -202,6 +207,7 @@ import FaceSwapHistory from './FaceSwapHistory.vue'
 import UsageCounter from './UsageCounter.vue'
 import { roadshowService } from '../../services/roadshowService.js'
 import { imageUrls } from '@/config/imageUrls'
+import { composeImageWithLogo, uploadPngBlob } from '@/utils/composeImageWithLogo'
 
 // Define props
 const props = defineProps({
@@ -499,77 +505,52 @@ async function downloadToOfficial() {
     const imageIndex = selectedImageIndex.value >= 0 && selectedImageIndex.value < generatedImages.value.length 
       ? selectedImageIndex.value 
       : 0
-    
-    // 本地測試：使用原始圖片 URL 下載（避免 CORS 問題）
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      const originalImageUrl = originalImages.value[imageIndex] || generatedImages.value[imageIndex]
-      
-      try {
-        const blob = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest()
-          xhr.open('GET', originalImageUrl, true)
-          xhr.responseType = 'blob'
-          
-          xhr.onload = function() {
-            if (xhr.status === 200) {
-              resolve(xhr.response)
-            } else {
-              reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`))
-            }
-          }
-          
-          xhr.onerror = function() {
-            reject(new Error('網路錯誤，無法下載圖片'))
-          }
-          
-          xhr.onabort = function() {
-            reject(new Error('下載被取消'))
-          }
-          
-          xhr.send()
-        })
-        
-        const blobUrl = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = blobUrl
-        link.download = `faceswap-result-${imageIndex + 1}-${Date.now()}.jpg`
-        link.style.display = 'none'
-        document.body.appendChild(link)
-        link.click()
-        
-        setTimeout(() => {
-          document.body.removeChild(link)
-          window.URL.revokeObjectURL(blobUrl)
-        }, 100)
-        
-        showMessage('圖片已下載到本機', 'success')
-      } catch (downloadError) {
-        console.error('❌ 下載圖片失敗:', downloadError)
-        try {
-          await downloadImageViaCanvas(originalImageUrl, `faceswap-result-${imageIndex + 1}.jpg`)
-          showMessage('圖片已下載到本機', 'success')
-        } catch (canvasError) {
-          console.error('❌ Canvas 下載也失敗:', canvasError)
-          window.open(originalImageUrl, '_blank')
-          showMessage('下載失敗，已在新視窗打開圖片連結', 'error')
-        }
-      }
-      return
-    }
-    
-    // 生產環境：透過 LIFF 發送
-    loadingMessage.value = '正在發送到官方帳號...'
-    
-    // 獲取要發送的圖片 URL（使用原始圖片 URL，因為 LIFF 需要完整的 URL）
-    const imageUrlToSend = originalImages.value[imageIndex] || generatedImages.value[imageIndex]
-    
-    if (!imageUrlToSend) {
+
+    const baseImageUrl = originalImages.value[imageIndex] || generatedImages.value[imageIndex]
+    if (!baseImageUrl) {
       showMessage('無法獲取圖片 URL，無法下載', 'error')
       return
     }
-    
-    console.log('📤 準備發送圖片:', imageUrlToSend)
-    await sendViaLiff(imageUrlToSend)
+
+    loadingMessage.value = '正在加上 logo...'
+    loadingSubMessage.value = '請稍候'
+
+    const composedBlob = await composeImageWithLogo({
+      baseImageUrl,
+      logoUrl: imageUrls.logo,
+      marginPx: 20,
+      logoWidthRatio: 0.15
+    })
+
+    // 本地測試：下載到本機
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      const blobUrl = window.URL.createObjectURL(composedBlob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = `faceswap-result-${imageIndex + 1}-${Date.now()}.png`
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      setTimeout(() => {
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(blobUrl)
+      }, 100)
+      showMessage('圖片已下載到本機', 'success')
+      return
+    }
+
+    // 生產環境：上傳後再透過 LIFF 發送
+    loadingMessage.value = '正在上傳圖片...'
+    loadingSubMessage.value = '請稍候'
+    const uploadedUrl = await uploadPngBlob({
+      blob: composedBlob,
+      userId: props.userId || 'abc',
+      filename: `faceswap-result-${imageIndex + 1}`
+    })
+
+    loadingMessage.value = '正在發送到官方帳號...'
+    loadingSubMessage.value = '請稍候'
+    await sendViaLiff(uploadedUrl)
     showMessage('圖片已成功發送到官方帳號！', 'success')
     
   } catch (error) {
