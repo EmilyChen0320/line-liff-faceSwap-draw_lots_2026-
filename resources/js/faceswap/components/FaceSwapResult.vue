@@ -210,6 +210,7 @@ import UsageCounter from './UsageCounter.vue'
 import { roadshowService } from '../../services/roadshowService.js'
 import { imageUrls } from '@/config/imageUrls'
 import { useScreenshot } from '@/composables/useScreenshot'
+import { composeImageWithLogo } from '@/utils/composeImageWithLogo'
 
 // Define props
 const props = defineProps({
@@ -247,6 +248,8 @@ const imageLoadErrors = ref({})
 const imageLoadedStates = ref({})
 const selectedImageIndex = ref(0)
 const resultImageRefs = ref({})
+const brandedImageObjectUrls = ref([])
+const brandedImageFlags = ref({})
 
 // 載入狀態訊息
 const loadingMessage = ref('檢查任務狀態...')
@@ -273,6 +276,58 @@ function setResultImageRef(el, index) {
     resultImageRefs.value[index] = el
   } else {
     delete resultImageRefs.value[index]
+  }
+}
+
+function revokeBrandedObjectUrls() {
+  brandedImageObjectUrls.value.forEach((url) => {
+    if (typeof url === 'string' && url.startsWith('blob:')) {
+      URL.revokeObjectURL(url)
+    }
+  })
+  brandedImageObjectUrls.value = []
+}
+
+function buildProcessedImageUrl(imageUrl) {
+  const config = window.endpoint || {}
+  const apiUrl = config.imageProcessApi || 'https://stg-api.fanpokka.ai/api/static-resource'
+  const params = config.imageProcessParams || { scale: 2, format: 'jpg', quality: 90, width: 800, height: 600 }
+
+  const queryParams = new URLSearchParams()
+  queryParams.append('url', imageUrl)
+  if (params.scale) queryParams.append('scale', params.scale)
+  if (params.format) queryParams.append('format', params.format)
+  if (params.quality) queryParams.append('quality', params.quality)
+  if (params.width) queryParams.append('width', params.width)
+  if (params.height) queryParams.append('height', params.height)
+
+  return `${apiUrl}?${queryParams.toString()}`
+}
+
+async function buildBrandedImageUrl(imageUrl, index) {
+  const tryComposeAndUpload = async (baseImageUrl) => {
+    const blob = await composeImageWithLogo({
+      baseImageUrl,
+      logoUrl: imageUrls.logo,
+      marginPx: 20,
+      logoWidthRatio: 0.15
+    })
+
+    const uploadedUrl = await uploadImage(blob, props.userId || 'abc', `faceswap-result-${index + 1}`)
+    if (uploadedUrl) {
+      return uploadedUrl
+    }
+
+    const objectUrl = URL.createObjectURL(blob)
+    brandedImageObjectUrls.value.push(objectUrl)
+    return objectUrl
+  }
+
+  try {
+    return await tryComposeAndUpload(buildProcessedImageUrl(imageUrl))
+  } catch (processedError) {
+    console.warn('⚠️ 含 Logo 圖片處理失敗，改用原始圖片重試:', processedError)
+    return tryComposeAndUpload(imageUrl)
   }
 }
 
@@ -345,9 +400,9 @@ async function checkTaskStatus() {
     // 新 API 響應格式: { success: true, id, status, images, template_id, result }
     if (result && (result.success || result.status === 'completed' || result.status === 'pending' || result.status === 'processing')) {
       taskResult.value = result;
-      
+
       // 根據狀態處理
-      handleTaskStatus(result);
+      await handleTaskStatus(result);
     } else if (result && result.error) {
       error.value = result.error.message || '檢查任務狀態失敗';
       console.error('❌ 檢查任務狀態失敗:', result.error);
@@ -392,31 +447,23 @@ async function handleTaskStatus(data) {
         originalImages.value = images
         imageLoadErrors.value = {}
         imageLoadedStates.value = {}
-        
-        const processedImages = []
-        for (const imageUrl of images) {
+        brandedImageFlags.value = {}
+
+        revokeBrandedObjectUrls()
+        loadingMessage.value = '正在套用 Logo...'
+        loadingSubMessage.value = '請稍候'
+
+        const processedImages = await Promise.all(images.map(async (imageUrl, index) => {
           try {
-            const config = window.endpoint || {};
-            const apiUrl = config.imageProcessApi || 'https://stg-api.fanpokka.ai/api/static-resource';
-            const params = config.imageProcessParams || { scale: 2, format: 'jpg', quality: 90, width: 800, height: 600 };
-            
-            const queryParams = new URLSearchParams();
-            queryParams.append('url', imageUrl);
-            if (params.scale) queryParams.append('scale', params.scale);
-            if (params.format) queryParams.append('format', params.format);
-            if (params.quality) queryParams.append('quality', params.quality);
-            if (params.width) queryParams.append('width', params.width);
-            if (params.height) queryParams.append('height', params.height);
-            
-            const processedImageUrl = `${apiUrl}?${queryParams.toString()}`;
-            processedImages.push(processedImageUrl);
-            
+            const brandedUrl = await buildBrandedImageUrl(imageUrl, index)
+            brandedImageFlags.value[brandedUrl] = true
+            return brandedUrl
           } catch (error) {
-            console.error('❌ 處理圖片時發生錯誤:', error);
-            processedImages.push(imageUrl);
+            console.error('❌ 處理含 Logo 圖片時發生錯誤:', error)
+            return buildProcessedImageUrl(imageUrl)
           }
-        }
-        
+        }))
+
         generatedImages.value = processedImages
       }
       break
@@ -478,6 +525,14 @@ async function downloadToOfficial() {
     const displayImageUrl = generatedImages.value[imageIndex]
     if (!displayImageUrl) {
       showMessage('無法獲取圖片 URL，無法下載', 'error')
+      return
+    }
+
+    if (brandedImageFlags.value[displayImageUrl] && !displayImageUrl.startsWith('blob:')) {
+      loadingMessage.value = '正在發送到官方帳號...'
+      loadingSubMessage.value = '請稍候'
+      await sendViaLiff(displayImageUrl)
+      showMessage('圖片已成功發送到官方帳號！', 'success')
       return
     }
 
@@ -551,7 +606,12 @@ function handleImageLoad(event) {
 }
 
 function shouldShowLogo(imageUrl) {
-  return Boolean(imageUrl && !imageLoadErrors.value[imageUrl])
+  return Boolean(
+    imageUrl &&
+    imageLoadedStates.value[imageUrl] &&
+    !imageLoadErrors.value[imageUrl] &&
+    !brandedImageFlags.value[imageUrl]
+  )
 }
 
 function getTemplateImage(templateId) {

@@ -434,7 +434,7 @@ function handleResultImageError(event) {
 }
 
 function shouldShowLogo(imageUrl) {
-  return Boolean(imageUrl && !imageLoadErrors.value[imageUrl])
+  return Boolean(imageUrl && imageLoadedStates.value[imageUrl] && !imageLoadErrors.value[imageUrl])
 }
 
 // 格式化日期
