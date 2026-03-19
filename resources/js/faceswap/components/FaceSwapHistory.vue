@@ -33,7 +33,7 @@
           <img 
             :src="imageUrls.back"
             alt="Back Arrow"
-            class="w-[26px] h-[26px] object-contain brightness-0"
+            class="w-[26px] h-[26px] object-contain brightness-0 translate-y-[2px]"
           />
         </button>
         

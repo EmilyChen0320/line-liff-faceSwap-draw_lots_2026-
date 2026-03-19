@@ -1,6 +1,51 @@
 import html2canvas from 'html2canvas'
 
 export function useScreenshot() {
+  function isLikelyCrossOrigin(src) {
+    if (!src || typeof src !== 'string') return false
+    if (src.startsWith('data:') || src.startsWith('blob:')) return false
+    try {
+      const resolved = new URL(src, window.location.href)
+      return resolved.origin !== window.location.origin
+    } catch {
+      // If URL parsing fails, treat it as non-cross-origin
+      return false
+    }
+  }
+
+  async function waitForImageReady(img, timeout = 3000) {
+    if (!img) return
+
+    if (!img.complete) {
+      await Promise.race([
+        new Promise((resolve) => {
+          const cleanup = () => {
+            img.removeEventListener('load', handleDone)
+            img.removeEventListener('error', handleDone)
+          }
+          const handleDone = () => {
+            cleanup()
+            resolve()
+          }
+
+          img.addEventListener('load', handleDone)
+          img.addEventListener('error', handleDone)
+        }),
+        new Promise((resolve) => setTimeout(resolve, timeout))
+      ])
+    }
+
+    if (typeof img.decode === 'function') {
+      try {
+        await img.decode()
+      } catch {
+        // Ignore decode errors and let html2canvas use current image state
+      }
+    }
+
+    await new Promise((resolve) => requestAnimationFrame(() => resolve()))
+  }
+
   // 預載入並轉換跨域圖片為 base64
   async function preloadAndConvertImages(container) {
     const images = container.querySelectorAll('img')
@@ -10,12 +55,14 @@ export function useScreenshot() {
       // 儲存原始 src
       originalSrcs.set(img, img.src)
       
-      // 如果是跨域圖片，嘗試轉換為 base64
-      if (img.src.includes('stg-api.fanpokka.ai') || img.src.includes('voice.5gao.ai')) {
+      // 如果是跨域圖片，嘗試轉換為 base64（避免 html2canvas 截圖漏掉圖片）
+      if (isLikelyCrossOrigin(img.src)) {
         try {
           console.log('🔄 正在轉換跨域圖片:', img.src)
-          const base64 = await convertImageToBase64(img.src)
+          // fetch 方式通常比 Image+Canvas 更穩定（避免 tainted canvas）
+          const base64 = await fetchImageAsBase64(img.src)
           img.src = base64
+          await waitForImageReady(img)
           console.log('✅ 跨域圖片已轉換為 base64')
         } catch (error) {
           console.warn('⚠️ 無法轉換跨域圖片，將使用佔位符:', error)
@@ -23,16 +70,11 @@ export function useScreenshot() {
           const width = img.naturalWidth || img.width || 300
           const height = img.naturalHeight || img.height || 200
           img.src = createPlaceholderImage(width, height)
+          await waitForImageReady(img)
         }
       } else {
         // 確保本地圖片已載入
-        if (!img.complete) {
-          await new Promise((resolve) => {
-            img.onload = resolve
-            img.onerror = resolve
-            setTimeout(resolve, 3000) // 3秒超時
-          })
-        }
+        await waitForImageReady(img)
       }
     })
     
@@ -56,6 +98,7 @@ export function useScreenshot() {
       // 使用 Image 方法，設置 crossOrigin
       const img = new Image()
       img.crossOrigin = 'anonymous'
+      let timeoutId = null
       
       img.onload = () => {
         try {
@@ -68,6 +111,7 @@ export function useScreenshot() {
           ctx.drawImage(img, 0, 0)
           
           const base64 = canvas.toDataURL('image/jpeg', 0.9)
+          if (timeoutId) clearTimeout(timeoutId)
           resolve(base64)
         } catch (error) {
           console.warn('Canvas 轉換失敗，嘗試 fetch 方法:', error)
@@ -83,7 +127,7 @@ export function useScreenshot() {
       }
       
       // 設置超時
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         reject(new Error('圖片載入超時'))
       }, 10000)
       

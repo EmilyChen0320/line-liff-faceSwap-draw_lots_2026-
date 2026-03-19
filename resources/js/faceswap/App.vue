@@ -325,7 +325,7 @@ function goBack() {
 <style scoped>
 .app {
   overflow-x: hidden;
-  background-color: #333333;
+  background-color: #ffffff;
   min-height: 100vh;
 }
 

@@ -4,6 +4,12 @@
 
 @layer base {
   /* 全站字體統一由 index.html 的 body 設定為 Noto Sans Georgian */
+  html,
+  body,
+  #vue-root {
+    background-color: #ffffff;
+    min-height: 100%;
+  }
 }
 
 /* 步驟文字漸層樣式 */

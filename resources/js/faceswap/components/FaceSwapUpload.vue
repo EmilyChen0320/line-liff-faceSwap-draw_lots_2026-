@@ -125,7 +125,7 @@
               <div
                 v-else
                 class="w-full h-full rounded-[12px] overflow-hidden"
-                style="background: rgba(188, 169, 209, 0.30); border: 3.5px dashed var(--Core-Purple-600, #674598);"
+                style="background: rgba(188, 169, 209, 0.30);"
               >
                 <!-- 圖片預覽 -->
                 <img

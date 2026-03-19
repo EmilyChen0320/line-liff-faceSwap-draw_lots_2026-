@@ -21,12 +21,12 @@
             <img 
               :src="imageUrls.back"
               alt="Back Arrow"
-              class="w-[26px] h-[26px] object-contain"
+              class="w-[26px] h-[26px] object-contain brightness-0 translate-y-[2px]"
             />
           </button>
           
           <!-- Title -->
-          <div class="text-xl font-bold cp-font text-[#FFFFFF]">
+          <div class="text-xl font-bold cp-font text-[#0E0E0E]">
             生成詳情
           </div>
         </div>
@@ -74,9 +74,10 @@
                     @load="handleImageLoad"
                   />
                   <img
+                    v-if="shouldShowLogo(getHistoryImage(historyDetail))"
                     :src="imageUrls.logo"
                     alt="logo"
-                    class="absolute top-[20px] right-[20px] w-[15%] pointer-events-none select-none"
+                    class="absolute top-[24px] right-[20px] w-[15%] max-w-[72px] pointer-events-none select-none z-20"
                   />
                 </div>
                 <div v-if="imageLoadErrors[getHistoryImage(historyDetail)]" class="text-center text-red-400 text-sm mt-2">
@@ -139,9 +140,9 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { roadshowService } from '../../services/roadshowService.js'
 import { imageUrls } from '@/config/imageUrls'
-import { composeImageWithLogo, uploadPngBlob } from '@/utils/composeImageWithLogo'
+import { useScreenshot } from '@/composables/useScreenshot'
+import { composeImageWithLogo } from '@/utils/composeImageWithLogo'
 import UsageCounter from './UsageCounter.vue'
 
 const props = defineProps({
@@ -169,7 +170,9 @@ const isLoading = ref(false)
 const error = ref(null)
 const historyDetail = ref(null)
 const imageLoadErrors = ref({})
+const imageLoadedStates = ref({})
 
+const { downloadToLocal, uploadImage } = useScreenshot()
 // 截圖相關狀態
 const isDownloading = ref(false)
 
@@ -185,67 +188,27 @@ function showMessage(message, type = 'info') {
   }
 }
 
-// 使用 Canvas 下載圖片（後備方案）
-async function downloadImageViaCanvas(imageUrl, filename) {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    
-    // 嘗試設置 crossOrigin，但如果失敗則不設置（允許同源或已設置 CORS 的圖片）
-    try {
-      img.crossOrigin = 'anonymous'
-    } catch (e) {
-      console.warn('⚠️ 無法設置 crossOrigin:', e)
+async function composeHistoryImage(primaryUrl, fallbackUrl) {
+  try {
+    return await composeImageWithLogo({
+      baseImageUrl: primaryUrl,
+      logoUrl: imageUrls.logo,
+      marginPx: 20,
+      logoWidthRatio: 0.15
+    })
+  } catch (primaryError) {
+    if (!fallbackUrl || fallbackUrl === primaryUrl) {
+      throw primaryError
     }
-    
-    img.onload = function() {
-      try {
-        console.log('✅ 圖片載入成功，開始轉換為 Canvas')
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0)
-        console.log('✅ Canvas 繪製完成，尺寸:', canvas.width, 'x', canvas.height)
-        
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            console.error('❌ Canvas 轉換為 Blob 失敗')
-            reject(new Error('Canvas 轉換失敗'))
-            return
-          }
-          
-          console.log('✅ Blob 創建成功，大小:', blob.size, 'bytes')
-          const blobUrl = window.URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = blobUrl
-          link.download = filename
-          link.style.display = 'none'
-          document.body.appendChild(link)
-          link.click()
-          console.log('✅ 下載連結已觸發')
-          
-          setTimeout(() => {
-            document.body.removeChild(link)
-            window.URL.revokeObjectURL(blobUrl)
-          }, 100)
-          
-          resolve()
-        }, 'image/jpeg', 0.95)
-      } catch (error) {
-        console.error('❌ Canvas 處理錯誤:', error)
-        reject(error)
-      }
-    }
-    
-    img.onerror = function(event) {
-      console.error('❌ 圖片載入失敗:', event)
-      console.error('❌ 圖片 URL:', imageUrl)
-      reject(new Error('圖片載入失敗，可能是 CORS 問題'))
-    }
-    
-    console.log('🖼️ 開始載入圖片:', imageUrl)
-    img.src = imageUrl
-  })
+
+    console.warn('⚠️ 主要歷史圖片來源合成失敗，改用備援來源:', primaryError)
+    return composeImageWithLogo({
+      baseImageUrl: fallbackUrl,
+      logoUrl: imageUrls.logo,
+      marginPx: 20,
+      logoWidthRatio: 0.15
+    })
+  }
 }
 
 // 透過 LIFF 發送圖片
@@ -321,6 +284,8 @@ async function loadHistoryDetail() {
     historyDetail.value = {
       ...props.historyItem
     }
+    imageLoadErrors.value = {}
+    imageLoadedStates.value = {}
     
     // 檢查圖片 URL
     const imageUrl = getHistoryImage(historyDetail.value)
@@ -452,6 +417,7 @@ function handleImageLoad(event) {
   if (imageLoadErrors.value[imageUrl]) {
     delete imageLoadErrors.value[imageUrl];
   }
+  imageLoadedStates.value[imageUrl] = true;
 }
 
 // 處理圖片載入錯誤
@@ -461,6 +427,7 @@ function handleImageError(event) {
   
   // 記錄錯誤
   imageLoadErrors.value[imageUrl] = true;
+  imageLoadedStates.value[imageUrl] = false;
 }
 
 // 處理結果圖片載入錯誤
@@ -470,6 +437,7 @@ function handleResultImageError(event) {
   
   // 記錄錯誤
   imageLoadErrors.value[imageUrl] = true;
+  imageLoadedStates.value[imageUrl] = false;
   
   // 避免無限迴圈：檢查是否已經是預設圖片或錯誤圖片
   if (imageUrl.includes('default_history.png') || imageUrl.includes('data:image/svg+xml')) {
@@ -483,6 +451,10 @@ function handleResultImageError(event) {
   
   // 記錄錯誤，但不重試
   console.log('🔄 設置預設 SVG 圖片，避免無限迴圈');
+}
+
+function shouldShowLogo(imageUrl) {
+  return Boolean(imageUrl && imageLoadedStates.value[imageUrl] && !imageLoadErrors.value[imageUrl])
 }
 
 // 格式化日期
@@ -549,123 +521,28 @@ async function downloadToOfficial() {
     return
   }
 
-  // 在本地測試時，使用原始圖片 URL（避免 CORS 問題）
-  // 原始圖片 URL 來自 historyDetail.value.image
-  const originalImageUrl = historyDetail.value?.image || displayImageUrl
-  const downloadImageUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-    ? originalImageUrl 
-    : displayImageUrl
+  // 保留原始圖片作為備援來源，優先使用畫面同源的處理後 URL
+  const rawImageUrl = historyDetail.value?.image || historyDetail.value?.image_url || historyDetail.value?.result_image || historyDetail.value?.generated_image
+  const originalImageUrl = rawImageUrl?.startsWith('/') ? `https://stg-line-crm.fanpokka.ai${rawImageUrl}` : rawImageUrl
+  const baseImageUrl = displayImageUrl || originalImageUrl
+  const fallbackImageUrl = originalImageUrl && originalImageUrl !== baseImageUrl
+    ? originalImageUrl
+    : null
 
   try {
     isDownloading.value = true
     console.log('📥 開始下載歷史項目至官方帳號流程')
-    
-    // 本地測試：先下載到本機確認圖片
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      console.log('🧪 本地測試模式：下載圖片到本機')
-      console.log('📸 顯示用圖片 URL:', displayImageUrl)
-      console.log('📸 下載用原始圖片 URL:', downloadImageUrl)
-      
-      try {
-        // 方法1: 使用 XMLHttpRequest 下載圖片（更可靠，支持跨域）
-        const blob = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest()
-          xhr.open('GET', downloadImageUrl, true)
-          xhr.responseType = 'blob'
-          
-          xhr.onload = function() {
-            if (xhr.status === 200) {
-              resolve(xhr.response)
-            } else {
-              reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`))
-            }
-          }
-          
-          xhr.onerror = function() {
-            reject(new Error('網路錯誤，無法下載圖片'))
-          }
-          
-          xhr.onabort = function() {
-            reject(new Error('下載被取消'))
-          }
-          
-          xhr.send()
-        })
-        
-        // 創建 blob URL 並下載
-        const blobUrl = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = blobUrl
-        link.download = `history-detail-${Date.now()}.jpg`
-        link.style.display = 'none'
-        document.body.appendChild(link)
-        link.click()
-        
-        // 延遲清理，確保下載開始
-        setTimeout(() => {
-          document.body.removeChild(link)
-          window.URL.revokeObjectURL(blobUrl)
-        }, 100)
-        
-        console.log('✅ 圖片已下載到本機')
-        showMessage('圖片已下載到本機', 'success')
-      } catch (downloadError) {
-        console.error('❌ 下載圖片失敗:', downloadError)
-        console.error('❌ 錯誤詳情:', {
-          message: downloadError.message,
-          stack: downloadError.stack,
-          downloadImageUrl: downloadImageUrl,
-          displayImageUrl: displayImageUrl
-        })
-        
-        // 如果 XMLHttpRequest 也失敗，嘗試使用 canvas 方式
-        try {
-          await downloadImageViaCanvas(downloadImageUrl, 'history-detail.jpg')
-          showMessage('圖片已下載到本機', 'success')
-        } catch (canvasError) {
-          console.error('❌ Canvas 下載也失敗:', canvasError)
-          // 最後的後備方案：直接打開連結
-          window.open(downloadImageUrl, '_blank')
-          showMessage('下載失敗，已在新視窗打開圖片連結', 'error')
-        }
-      }
-      return
-    }
-    
-  // 組合（加 logo）
-  const composedBlob = await composeImageWithLogo({
-    baseImageUrl: downloadImageUrl,
-    logoUrl: imageUrls.logo,
-    marginPx: 20,
-    logoWidthRatio: 0.15
-  })
+    const blob = await composeHistoryImage(baseImageUrl, fallbackImageUrl)
 
   // 本地測試：下載到本機
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    const blobUrl = window.URL.createObjectURL(composedBlob)
-    const link = document.createElement('a')
-    link.href = blobUrl
-    link.download = `history-detail-${Date.now()}.png`
-    link.style.display = 'none'
-    document.body.appendChild(link)
-    link.click()
-    setTimeout(() => {
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(blobUrl)
-    }, 100)
-
-    console.log('✅ 圖片已下載到本機（含 logo）')
+    downloadToLocal(blob, 'history-detail')
     showMessage('圖片已下載到本機', 'success')
     return
   }
 
   // 生產環境：上傳後透過 LIFF 發送（含 logo）
-  const uploadedUrl = await uploadPngBlob({
-    blob: composedBlob,
-    userId: props.userId || 'abc',
-    filename: 'history-detail'
-  })
-
+  const uploadedUrl = await uploadImage(blob, props.userId || 'abc', 'history-detail')
   await sendViaLiff(uploadedUrl)
   console.log('✅ 發送完成')
   showMessage('圖片已成功發送到官方帳號！', 'success')

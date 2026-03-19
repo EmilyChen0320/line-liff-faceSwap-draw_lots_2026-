@@ -129,9 +129,10 @@
                     @load="handleImageLoad"
                   />
                   <img
+                    v-if="shouldShowLogo(image)"
                     :src="imageUrls.logo"
                     alt="logo"
-                    class="absolute top-[20px] right-[20px] w-[15%] pointer-events-none select-none"
+                    class="absolute top-[24px] right-[20px] w-[15%] max-w-[72px] pointer-events-none select-none z-20"
                   />
                 </div>
                 <div v-if="imageLoadErrors[image]" class="text-center text-red-400 text-sm mt-2">
@@ -207,7 +208,8 @@ import FaceSwapHistory from './FaceSwapHistory.vue'
 import UsageCounter from './UsageCounter.vue'
 import { roadshowService } from '../../services/roadshowService.js'
 import { imageUrls } from '@/config/imageUrls'
-import { composeImageWithLogo, uploadPngBlob } from '@/utils/composeImageWithLogo'
+import { useScreenshot } from '@/composables/useScreenshot'
+import { composeImageWithLogo } from '@/utils/composeImageWithLogo'
 
 // Define props
 const props = defineProps({
@@ -242,6 +244,7 @@ const taskResult = ref(null)
 const generatedImages = ref([])
 const originalImages = ref([]) // 保存原始圖片 URL 用於下載
 const imageLoadErrors = ref({})
+const imageLoadedStates = ref({})
 const selectedImageIndex = ref(0)
 
 // 載入狀態訊息
@@ -262,52 +265,29 @@ function showMessage(message, type = 'info') {
   }
 }
 
-// 使用 Canvas 下載圖片（後備方案）
-async function downloadImageViaCanvas(imageUrl, filename) {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    
-    img.onload = function() {
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0)
-        
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error('Canvas 轉換失敗'))
-            return
-          }
-          
-          const blobUrl = window.URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = blobUrl
-          link.download = filename
-          link.style.display = 'none'
-          document.body.appendChild(link)
-          link.click()
-          
-          setTimeout(() => {
-            document.body.removeChild(link)
-            window.URL.revokeObjectURL(blobUrl)
-          }, 100)
-          
-          resolve()
-        }, 'image/jpeg', 0.95)
-      } catch (error) {
-        reject(error)
-      }
+const { downloadToLocal, uploadImage } = useScreenshot()
+
+async function composeResultImage(primaryUrl, fallbackUrl) {
+  try {
+    return await composeImageWithLogo({
+      baseImageUrl: primaryUrl,
+      logoUrl: imageUrls.logo,
+      marginPx: 20,
+      logoWidthRatio: 0.15
+    })
+  } catch (primaryError) {
+    if (!fallbackUrl || fallbackUrl === primaryUrl) {
+      throw primaryError
     }
-    
-    img.onerror = function() {
-      reject(new Error('圖片載入失敗'))
-    }
-    
-    img.src = imageUrl
-  })
+
+    console.warn('⚠️ 主要圖片來源合成失敗，改用備援來源:', primaryError)
+    return composeImageWithLogo({
+      baseImageUrl: fallbackUrl,
+      logoUrl: imageUrls.logo,
+      marginPx: 20,
+      logoWidthRatio: 0.15
+    })
+  }
 }
 
 // 透過 LIFF 發送圖片
@@ -423,6 +403,8 @@ async function handleTaskStatus(data) {
       if (images && Array.isArray(images) && images.length > 0) {
         // 保存原始圖片 URL
         originalImages.value = images
+        imageLoadErrors.value = {}
+        imageLoadedStates.value = {}
         
         const processedImages = []
         for (const imageUrl of images) {
@@ -506,35 +488,26 @@ async function downloadToOfficial() {
       ? selectedImageIndex.value 
       : 0
 
-    const baseImageUrl = originalImages.value[imageIndex] || generatedImages.value[imageIndex]
+    const originalImageUrl = originalImages.value[imageIndex]
+    const displayImageUrl = generatedImages.value[imageIndex]
+    const baseImageUrl = displayImageUrl || originalImageUrl
+    const fallbackImageUrl = originalImageUrl && originalImageUrl !== baseImageUrl
+      ? originalImageUrl
+      : null
+
     if (!baseImageUrl) {
       showMessage('無法獲取圖片 URL，無法下載', 'error')
       return
     }
 
-    loadingMessage.value = '正在加上 logo...'
+    loadingMessage.value = '正在處理圖片...'
     loadingSubMessage.value = '請稍候'
 
-    const composedBlob = await composeImageWithLogo({
-      baseImageUrl,
-      logoUrl: imageUrls.logo,
-      marginPx: 20,
-      logoWidthRatio: 0.15
-    })
+    const blob = await composeResultImage(baseImageUrl, fallbackImageUrl)
 
-    // 本地測試：下載到本機
+    // 本地測試：先下載到本機確認圖片
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      const blobUrl = window.URL.createObjectURL(composedBlob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = `faceswap-result-${imageIndex + 1}-${Date.now()}.png`
-      link.style.display = 'none'
-      document.body.appendChild(link)
-      link.click()
-      setTimeout(() => {
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(blobUrl)
-      }, 100)
+      downloadToLocal(blob, `faceswap-result-${imageIndex + 1}`)
       showMessage('圖片已下載到本機', 'success')
       return
     }
@@ -542,11 +515,7 @@ async function downloadToOfficial() {
     // 生產環境：上傳後再透過 LIFF 發送
     loadingMessage.value = '正在上傳圖片...'
     loadingSubMessage.value = '請稍候'
-    const uploadedUrl = await uploadPngBlob({
-      blob: composedBlob,
-      userId: props.userId || 'abc',
-      filename: `faceswap-result-${imageIndex + 1}`
-    })
+    const uploadedUrl = await uploadImage(blob, props.userId || 'abc', `faceswap-result-${imageIndex + 1}`)
 
     loadingMessage.value = '正在發送到官方帳號...'
     loadingSubMessage.value = '請稍候'
@@ -569,6 +538,7 @@ function handleImageError(event) {
   const imageUrl = event.target.src;
   console.error('❌ 圖片載入失敗:', imageUrl);
   imageLoadErrors.value[imageUrl] = true;
+  imageLoadedStates.value[imageUrl] = false;
 }
 
 // 處理圖片載入成功
@@ -577,6 +547,11 @@ function handleImageLoad(event) {
   if (imageLoadErrors.value[imageUrl]) {
     delete imageLoadErrors.value[imageUrl];
   }
+  imageLoadedStates.value[imageUrl] = true;
+}
+
+function shouldShowLogo(imageUrl) {
+  return Boolean(imageUrl && imageLoadedStates.value[imageUrl] && !imageLoadErrors.value[imageUrl])
 }
 
 function getTemplateImage(templateId) {
