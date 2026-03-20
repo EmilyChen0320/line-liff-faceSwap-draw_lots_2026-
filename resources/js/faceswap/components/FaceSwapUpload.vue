@@ -104,9 +104,7 @@
               :style="{
                 borderRadius: '12px',
                 background: 'var(--Core-Purple-300, #BCA9D1)',
-                border: uploadedImagePreview
-                  ? '1px solid var(--Core-Purple-600, #674598)'
-                  : '2px dashed var(--Core-Purple-600, #674598)'
+                border: '2px dashed var(--Core-Purple-600, #674598)'
               }"
               @click="triggerFileUpload"
               @dragover.prevent
@@ -137,7 +135,7 @@
                 <img
                   :src="uploadedImagePreview"
                   :alt="uploadedImage.name"
-                  class="w-full h-full object-contain"
+                  class="upload-preview-image w-full h-full object-contain"
                 />
               </div>
             </div>
@@ -475,6 +473,12 @@ onUnmounted(() => {
 }
 
 .upload-preview-wrap {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.upload-preview-image {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
