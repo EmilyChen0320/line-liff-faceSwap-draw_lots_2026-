@@ -119,7 +119,6 @@
               <div v-for="(image, index) in generatedImages" :key="index" class="mb-4">
                 <div 
                   class="relative cursor-pointer"
-                  :ref="(el) => setResultImageRef(el, index)"
                   @click="selectedImageIndex = index"
                 >
                   <img 
@@ -127,13 +126,6 @@
                     :src="image" 
                     :alt="`生成結果 ${index + 1}`"
                     @error="handleImageError"
-                    @load="handleImageLoad"
-                  />
-                  <img
-                    v-if="shouldShowLogo(image)"
-                    :src="imageUrls.logo"
-                    alt="logo"
-                    class="absolute top-[24px] right-[20px] w-[15%] max-w-[72px] pointer-events-none select-none z-20"
                   />
                 </div>
                 <div v-if="imageLoadErrors[image]" class="text-center text-red-400 text-sm mt-2">
@@ -209,8 +201,6 @@ import FaceSwapHistory from './FaceSwapHistory.vue'
 import UsageCounter from './UsageCounter.vue'
 import { roadshowService } from '../../services/roadshowService.js'
 import { imageUrls } from '@/config/imageUrls'
-import { useScreenshot } from '@/composables/useScreenshot'
-import { composeImageWithLogo } from '@/utils/composeImageWithLogo'
 
 // Define props
 const props = defineProps({
@@ -245,12 +235,7 @@ const taskResult = ref(null)
 const generatedImages = ref([])
 const originalImages = ref([]) // 保存原始圖片 URL 用於下載
 const imageLoadErrors = ref({})
-const imageLoadedStates = ref({})
 const selectedImageIndex = ref(0)
-const resultImageRefs = ref({})
-const brandedImageObjectUrls = ref([])
-const brandedImageFlags = ref({})
-const brandedUploadedUrls = ref({})
 
 // 載入狀態訊息
 const loadingMessage = ref('檢查任務狀態...')
@@ -270,8 +255,6 @@ function showMessage(message, type = 'info') {
   }
 }
 
-const { captureScreenshot, compressImage, downloadToLocal, uploadImage } = useScreenshot()
-
 function faceSwapLogoDebug(...args) {
   if (typeof window !== 'undefined' && window.endpoint?.debug) {
     console.log('[FaceSwap:logo]', ...args)
@@ -281,83 +264,6 @@ function faceSwapLogoDebug(...args) {
 function previewUrl(u) {
   if (typeof u !== 'string') return u
   return u.length > 160 ? `${u.slice(0, 160)}…` : u
-}
-
-function setResultImageRef(el, index) {
-  if (el) {
-    resultImageRefs.value[index] = el
-  } else {
-    delete resultImageRefs.value[index]
-  }
-}
-
-function revokeBrandedObjectUrls() {
-  brandedImageObjectUrls.value.forEach((url) => {
-    if (typeof url === 'string' && url.startsWith('blob:')) {
-      URL.revokeObjectURL(url)
-    }
-  })
-  brandedImageObjectUrls.value = []
-}
-
-function buildProcessedImageUrl(imageUrl) {
-  const config = window.endpoint || {}
-  const apiUrl = config.imageProcessApi || 'https://stg-api.fanpokka.ai/api/static-resource'
-  const params = config.imageProcessParams || { scale: 2, format: 'jpg', quality: 90, width: 800, height: 600 }
-
-  const queryParams = new URLSearchParams()
-  queryParams.append('url', imageUrl)
-  if (params.scale) queryParams.append('scale', params.scale)
-  if (params.format) queryParams.append('format', params.format)
-  if (params.quality) queryParams.append('quality', params.quality)
-  if (params.width) queryParams.append('width', params.width)
-  if (params.height) queryParams.append('height', params.height)
-
-  return `${apiUrl}?${queryParams.toString()}`
-}
-
-async function buildBrandedImageUrl(imageUrl, index) {
-  faceSwapLogoDebug('buildBrandedImageUrl start', { index, source: previewUrl(imageUrl) })
-
-  const tryComposeAndUpload = async (baseImageUrl, stepLabel) => {
-    faceSwapLogoDebug('compose + upload', { stepLabel, base: previewUrl(baseImageUrl) })
-    const blob = await composeImageWithLogo({
-      baseImageUrl,
-      logoUrl: imageUrls.logo,
-      marginPx: 20,
-      logoWidthRatio: 0.15
-    })
-
-    const objectUrl = URL.createObjectURL(blob)
-    brandedImageObjectUrls.value.push(objectUrl)
-
-    let uploadedUrl = null
-    try {
-      uploadedUrl = await uploadImage(blob, props.userId || 'abc', `faceswap-result-${index + 1}`)
-    } catch (uploadErr) {
-      faceSwapLogoDebug('uploadImage threw (顯示仍用 blob，含 logo)', { stepLabel, message: uploadErr?.message })
-    }
-
-    if (uploadedUrl) {
-      brandedUploadedUrls.value[objectUrl] = uploadedUrl
-      faceSwapLogoDebug('uploadImage OK', { stepLabel, publicUrl: previewUrl(uploadedUrl) })
-    } else {
-      faceSwapLogoDebug('uploadImage returned null（未設定上傳 URL 或後端未回圖片網址）', { stepLabel })
-    }
-
-    faceSwapLogoDebug('display blob URL', { stepLabel, objectUrl: previewUrl(objectUrl) })
-    return objectUrl
-  }
-
-  try {
-    const processed = buildProcessedImageUrl(imageUrl)
-    faceSwapLogoDebug('try pipeline: imageProcess proxy first', { processed: previewUrl(processed) })
-    return await tryComposeAndUpload(processed, 'processed-proxy')
-  } catch (processedError) {
-    console.warn('⚠️ 含 Logo 圖片處理失敗，改用原始圖片重試:', processedError)
-    faceSwapLogoDebug('fallback pipeline: raw task image URL', { raw: previewUrl(imageUrl) })
-    return tryComposeAndUpload(imageUrl, 'raw-source')
-  }
 }
 
 // 透過 LIFF 發送圖片
@@ -475,46 +381,12 @@ async function handleTaskStatus(data) {
         // 保存原始圖片 URL
         originalImages.value = images
         imageLoadErrors.value = {}
-        imageLoadedStates.value = {}
-        brandedImageFlags.value = {}
-        brandedUploadedUrls.value = {}
-
-        revokeBrandedObjectUrls()
-        loadingMessage.value = '正在套用 Logo...'
-        loadingSubMessage.value = '請稍候'
-
-        const processedImages = await Promise.all(images.map(async (imageUrl, index) => {
-          try {
-            const brandedUrl = await buildBrandedImageUrl(imageUrl, index)
-            brandedImageFlags.value[brandedUrl] = true
-            faceSwapLogoDebug('branding OK', {
-              index,
-              displayIsBlob: typeof brandedUrl === 'string' && brandedUrl.startsWith('blob:'),
-              overlayLogoHidden: true,
-              url: previewUrl(brandedUrl)
-            })
-            return brandedUrl
-          } catch (error) {
-            console.error('❌ 處理含 Logo 圖片時發生錯誤:', error)
-            const fallback = buildProcessedImageUrl(imageUrl)
-            faceSwapLogoDebug('branding FAILED → fallback（圖檔本身無 logo，應靠疊圖層）', {
-              index,
-              message: error?.message,
-              fallback: previewUrl(fallback),
-              overlayLogoExpected: true
-            })
-            return fallback
-          }
-        }))
-
-        generatedImages.value = processedImages
-        faceSwapLogoDebug('generatedImages 已設定', {
-          count: processedImages.length,
-          items: processedImages.map((u, i) => ({
+        generatedImages.value = images
+        faceSwapLogoDebug('generatedImages 已設定（使用後端圖）', {
+          count: images.length,
+          items: images.map((u, i) => ({
             i,
-            kind: typeof u === 'string' && u.startsWith('blob:') ? 'blob(含 canvas logo)' : 'remote',
-            url: previewUrl(u),
-            showOverlayLogo: !brandedImageFlags.value[u]
+            url: previewUrl(u)
           }))
         })
       }
@@ -580,64 +452,15 @@ async function downloadToOfficial() {
       return
     }
 
-    const uploadedBrandedUrl = brandedUploadedUrls.value[displayImageUrl]
     faceSwapLogoDebug('downloadToOfficial', {
       imageIndex,
       displaySrcKind:
-        typeof displayImageUrl === 'string' && displayImageUrl.startsWith('blob:') ? 'blob' : 'remote',
-      hasPreUploadedBranded: Boolean(uploadedBrandedUrl),
-      preUploaded: uploadedBrandedUrl ? previewUrl(uploadedBrandedUrl) : null
+        typeof displayImageUrl === 'string' && displayImageUrl.startsWith('blob:') ? 'blob' : 'remote'
     })
-
-    if (uploadedBrandedUrl) {
-      loadingMessage.value = '正在發送到官方帳號...'
-      loadingSubMessage.value = '請稍候'
-      await sendViaLiff(uploadedBrandedUrl)
-      showMessage('圖片已成功發送到官方帳號！', 'success')
-      return
-    }
-
-    const targetContainer = resultImageRefs.value[imageIndex]
-    if (!targetContainer) {
-      showMessage('找不到結果圖片區域，請稍後再試', 'error')
-      return
-    }
-
-    loadingMessage.value = '正在處理圖片...'
-    loadingSubMessage.value = '請稍候'
-
-    faceSwapLogoDebug('downloadToOfficial → 走截圖後上傳（無 pre-upload 對應）')
-    const canvas = await captureScreenshot(targetContainer, {
-      padding: 0,
-      scaleFactor: 1,
-      backgroundColor: null
-    })
-    const blob = await compressImage(canvas)
-    faceSwapLogoDebug('screenshot blob', { size: blob?.size })
-
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    const forceUploadOnLocal = Boolean(window.endpoint?.forceUploadOnLocal)
-
-    // 本地測試預設下載到本機；若有開 forceUploadOnLocal，則改走 API
-    if (isLocalhost && !forceUploadOnLocal) {
-      downloadToLocal(blob, `faceswap-result-${imageIndex + 1}`)
-      showMessage('圖片已下載到本機', 'success')
-      return
-    }
-
-    // 生產環境：上傳後再透過 LIFF 發送
-    loadingMessage.value = '正在上傳圖片...'
-    loadingSubMessage.value = '請稍候'
-    const uploadedUrl = await uploadImage(blob, props.userId || 'abc', `faceswap-result-${imageIndex + 1}`)
-    if (!uploadedUrl) {
-      downloadToLocal(blob, `faceswap-result-${imageIndex + 1}`)
-      showMessage('尚未設定圖片上傳 API，已改為下載到本機', 'success')
-      return
-    }
 
     loadingMessage.value = '正在發送到官方帳號...'
     loadingSubMessage.value = '請稍候'
-    await sendViaLiff(uploadedUrl)
+    await sendViaLiff(displayImageUrl)
     showMessage('圖片已成功發送到官方帳號！', 'success')
     
   } catch (error) {
@@ -656,25 +479,6 @@ function handleImageError(event) {
   const imageUrl = event.target.src;
   console.error('❌ 圖片載入失敗:', imageUrl);
   imageLoadErrors.value[imageUrl] = true;
-  imageLoadedStates.value[imageUrl] = false;
-}
-
-// 處理圖片載入成功
-function handleImageLoad(event) {
-  const imageUrl = event.target.src;
-  if (imageLoadErrors.value[imageUrl]) {
-    delete imageLoadErrors.value[imageUrl];
-  }
-  imageLoadedStates.value[imageUrl] = true;
-}
-
-function shouldShowLogo(imageUrl) {
-  return Boolean(
-    imageUrl &&
-    imageLoadedStates.value[imageUrl] &&
-    !imageLoadErrors.value[imageUrl] &&
-    !brandedImageFlags.value[imageUrl]
-  )
 }
 
 function getTemplateImage(templateId) {

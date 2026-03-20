@@ -37,20 +37,6 @@
       // 調試模式 - 設為 true 可以在控制台看到詳細日誌
       debug: true,
       
-      // ===== 圖片處理 API 配置 =====
-      // 圖片處理 API 端點 - sport115ntp 測試機
-      imageProcessApi: 'https://api.uat.sport115ntp.aitago.tw/api/static-resource',
-      // 圖片處理參數 - 修改這裡來調整圖片處理效果
-      imageProcessParams: {
-        scale: 2,        // 圖片縮放比例：0.5, 1, 1.5, 2
-        format: 'jpg',   // 圖片格式：jpg, png, webp
-        quality: 90,     // 圖片品質：1-100
-        width: 800,      // 圖片寬度（像素）
-        height: 600      // 圖片高度（像素）
-      },
-      // 是否啟用圖片處理功能
-      enableImageProcessing: true,
-      
       // ===== LIFF 配置 =====
       // LIFF ID - sport115ntp 活動專用（之後可再依實際調整）
       liffId: '2008136985-QEKHLgux',
@@ -76,13 +62,6 @@
         }
       }
       
-      // 輸出圖片處理 API 配置
-      if (window.endpoint.enableImageProcessing) {
-        console.log('🖼️ 圖片處理 API 配置:');
-        console.log('  - 端點:', window.endpoint.imageProcessApi);
-        console.log('  - 參數:', window.endpoint.imageProcessParams);
-        console.log('💡 修改這些配置可以調整圖片處理效果');
-      }
     }
   </script>
   

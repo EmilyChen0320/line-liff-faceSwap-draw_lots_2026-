@@ -66,7 +66,6 @@
             <template v-if="getHistoryImage(historyDetail)">
               <div class="mb-4">
                 <div
-                  ref="historyImageContainerRef"
                   class="relative"
                 >
                   <img 
@@ -74,13 +73,6 @@
                     :src="getHistoryImage(historyDetail)" 
                     alt="生成結果"
                     @error="handleResultImageError"
-                    @load="handleImageLoad"
-                  />
-                  <img
-                    v-if="shouldShowLogo(getHistoryImage(historyDetail))"
-                    :src="imageUrls.logo"
-                    alt="logo"
-                    class="absolute top-[24px] right-[20px] w-[15%] max-w-[72px] pointer-events-none select-none z-20"
                   />
                 </div>
                 <div v-if="imageLoadErrors[getHistoryImage(historyDetail)]" class="text-center text-red-400 text-sm mt-2">
@@ -144,7 +136,6 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { imageUrls } from '@/config/imageUrls'
-import { useScreenshot } from '@/composables/useScreenshot'
 import UsageCounter from './UsageCounter.vue'
 
 const props = defineProps({
@@ -172,10 +163,6 @@ const isLoading = ref(false)
 const error = ref(null)
 const historyDetail = ref(null)
 const imageLoadErrors = ref({})
-const imageLoadedStates = ref({})
-const historyImageContainerRef = ref(null)
-
-const { captureScreenshot, compressImage, downloadToLocal, uploadImage } = useScreenshot()
 // 截圖相關狀態
 const isDownloading = ref(false)
 
@@ -265,7 +252,6 @@ async function loadHistoryDetail() {
       ...props.historyItem
     }
     imageLoadErrors.value = {}
-    imageLoadedStates.value = {}
     
     // 檢查圖片 URL
     const imageUrl = getHistoryImage(historyDetail.value)
@@ -315,7 +301,7 @@ function getTemplateName(templateId) {
   return nameMap[templateId] || '預設模板'
 }
 
-// 獲取歷史圖片URL，使用新的圖片處理 API
+// 獲取歷史圖片 URL（直接使用後端已處理完成的圖片）
 function getHistoryImage(item) {
   if (!item) {
     console.log('❌ 沒有歷史項目數據')
@@ -334,7 +320,7 @@ function getHistoryImage(item) {
   
   console.log('🖼️ 找到圖片URL:', imageUrl)
   
-  let fullUrl = imageUrl;
+  let fullUrl = imageUrl
   
   // 如果圖片URL是相對路徑，添加API基礎URL
   if (imageUrl.startsWith('/')) {
@@ -342,33 +328,7 @@ function getHistoryImage(item) {
     console.log('🖼️ 完整圖片URL:', fullUrl)
   }
   
-  // 使用新的圖片處理 API 來優化歷史圖片
-  try {
-    console.log('🔄 使用新 API 處理歷史圖片:', fullUrl)
-    
-    // 從全局配置獲取圖片處理 API 設置
-    const config = window.endpoint || {};
-    const apiUrl = config.imageProcessApi || 'https://stg-api.fanpokka.ai/api/static-resource';
-    const params = config.imageProcessParams || { scale: 1.5, format: 'jpg', quality: 85, width: 600, height: 450 };
-    
-    // 構建查詢參數
-    const queryParams = new URLSearchParams();
-    queryParams.append('url', fullUrl);
-    if (params.scale) queryParams.append('scale', params.scale);
-    if (params.format) queryParams.append('format', params.format);
-    if (params.quality) queryParams.append('quality', params.quality);
-    if (params.width) queryParams.append('width', params.width);
-    if (params.height) queryParams.append('height', params.height);
-    
-    const processedImageUrl = `${apiUrl}?${queryParams.toString()}`;
-    console.log('✅ 歷史圖片處理 API URL:', processedImageUrl);
-    
-    return processedImageUrl;
-  } catch (error) {
-    console.error('❌ 處理歷史圖片時發生錯誤:', error)
-    // 如果處理失敗，返回原始圖片
-    return fullUrl
-  }
+  return fullUrl
 }
 
 // 處理模板圖片載入錯誤
@@ -390,26 +350,6 @@ function handleTemplateImageError(event) {
   console.log('🔄 設置預設 SVG 圖片，避免無限迴圈');
 }
 
-// 處理圖片載入成功
-function handleImageLoad(event) {
-  const imageUrl = event.target.src;
-  // 移除錯誤標記
-  if (imageLoadErrors.value[imageUrl]) {
-    delete imageLoadErrors.value[imageUrl];
-  }
-  imageLoadedStates.value[imageUrl] = true;
-}
-
-// 處理圖片載入錯誤
-function handleImageError(event) {
-  const imageUrl = event.target.src;
-  console.warn('❌ 圖片載入失敗:', imageUrl);
-  
-  // 記錄錯誤
-  imageLoadErrors.value[imageUrl] = true;
-  imageLoadedStates.value[imageUrl] = false;
-}
-
 // 處理結果圖片載入錯誤
 function handleResultImageError(event) {
   const imageUrl = event.target.src;
@@ -417,7 +357,6 @@ function handleResultImageError(event) {
   
   // 記錄錯誤
   imageLoadErrors.value[imageUrl] = true;
-  imageLoadedStates.value[imageUrl] = false;
   
   // 避免無限迴圈：檢查是否已經是預設圖片或錯誤圖片
   if (imageUrl.includes('default_history.png') || imageUrl.includes('data:image/svg+xml')) {
@@ -431,10 +370,6 @@ function handleResultImageError(event) {
   
   // 記錄錯誤，但不重試
   console.log('🔄 設置預設 SVG 圖片，避免無限迴圈');
-}
-
-function shouldShowLogo(imageUrl) {
-  return Boolean(imageUrl && imageLoadedStates.value[imageUrl] && !imageLoadErrors.value[imageUrl])
 }
 
 // 格式化日期
@@ -504,35 +439,7 @@ async function downloadToOfficial() {
   try {
     isDownloading.value = true
     console.log('📥 開始下載歷史項目至官方帳號流程')
-    if (!historyImageContainerRef.value) {
-      throw new Error('找不到歷史圖片區域，請稍後再試')
-    }
-
-    const canvas = await captureScreenshot(historyImageContainerRef.value, {
-      padding: 0,
-      scaleFactor: 1,
-      backgroundColor: null
-    })
-    const blob = await compressImage(canvas)
-
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  const forceUploadOnLocal = Boolean(window.endpoint?.forceUploadOnLocal)
-
-  // 本地測試預設下載到本機；若有開 forceUploadOnLocal，則改走 API
-  if (isLocalhost && !forceUploadOnLocal) {
-    downloadToLocal(blob, 'history-detail')
-    showMessage('圖片已下載到本機', 'success')
-    return
-  }
-
-  // 生產環境：上傳後透過 LIFF 發送（含 logo）
-  const uploadedUrl = await uploadImage(blob, props.userId || 'abc', 'history-detail')
-  if (!uploadedUrl) {
-    downloadToLocal(blob, 'history-detail')
-    showMessage('尚未設定圖片上傳 API，已改為下載到本機', 'success')
-    return
-  }
-  await sendViaLiff(uploadedUrl)
+    await sendViaLiff(displayImageUrl)
   console.log('✅ 發送完成')
   showMessage('圖片已成功發送到官方帳號！', 'success')
     

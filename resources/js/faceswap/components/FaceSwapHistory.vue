@@ -189,7 +189,7 @@ async function loadUserHistory() {
 
 
 
-// 獲取歷史圖片URL，使用新的圖片處理 API
+// 獲取歷史圖片 URL（直接使用後端已處理完成的圖片）
 function getHistoryImage(item) {
   if (!item || !item.image) {
     return null; // 沒有圖片時返回 null
@@ -202,30 +202,7 @@ function getHistoryImage(item) {
     imageUrl = `https://stg-line-crm.fanpokka.ai${imageUrl}`;
   }
   
-  // 使用新的圖片處理 API 來處理歷史圖片
-  try {
-    const config = window.endpoint || {};
-    const apiUrl = config.imageProcessApi || 'https://stg-api.fanpokka.ai/api/static-resource';
-    const params = config.imageProcessParams || { scale: 1.5, format: 'jpg', quality: 85, width: 600, height: 450 };
-    
-    // 構建查詢參數
-    const queryParams = new URLSearchParams();
-    queryParams.append('url', imageUrl);
-    if (params.scale) queryParams.append('scale', params.scale);
-    if (params.format) queryParams.append('format', params.format);
-    if (params.quality) queryParams.append('quality', params.quality);
-    if (params.width) queryParams.append('width', params.width);
-    if (params.height) queryParams.append('height', params.height);
-    
-    const processedImageUrl = `${apiUrl}?${queryParams.toString()}`;
-    console.log('🔄 歷史圖片使用處理 API:', processedImageUrl);
-    
-    return processedImageUrl;
-  } catch (error) {
-    console.error('❌ 處理歷史圖片時發生錯誤:', error);
-    // 如果處理失敗，返回原始圖片
-    return imageUrl;
-  }
+  return imageUrl
 }
 
 // 格式化日期
