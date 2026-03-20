@@ -272,6 +272,17 @@ function showMessage(message, type = 'info') {
 
 const { captureScreenshot, compressImage, downloadToLocal, uploadImage } = useScreenshot()
 
+function faceSwapLogoDebug(...args) {
+  if (typeof window !== 'undefined' && window.endpoint?.debug) {
+    console.log('[FaceSwap:logo]', ...args)
+  }
+}
+
+function previewUrl(u) {
+  if (typeof u !== 'string') return u
+  return u.length > 160 ? `${u.slice(0, 160)}…` : u
+}
+
 function setResultImageRef(el, index) {
   if (el) {
     resultImageRefs.value[index] = el
@@ -306,7 +317,10 @@ function buildProcessedImageUrl(imageUrl) {
 }
 
 async function buildBrandedImageUrl(imageUrl, index) {
-  const tryComposeAndUpload = async (baseImageUrl) => {
+  faceSwapLogoDebug('buildBrandedImageUrl start', { index, source: previewUrl(imageUrl) })
+
+  const tryComposeAndUpload = async (baseImageUrl, stepLabel) => {
+    faceSwapLogoDebug('compose + upload', { stepLabel, base: previewUrl(baseImageUrl) })
     const blob = await composeImageWithLogo({
       baseImageUrl,
       logoUrl: imageUrls.logo,
@@ -317,19 +331,32 @@ async function buildBrandedImageUrl(imageUrl, index) {
     const objectUrl = URL.createObjectURL(blob)
     brandedImageObjectUrls.value.push(objectUrl)
 
-    const uploadedUrl = await uploadImage(blob, props.userId || 'abc', `faceswap-result-${index + 1}`)
-    if (uploadedUrl) {
-      brandedUploadedUrls.value[objectUrl] = uploadedUrl
+    let uploadedUrl = null
+    try {
+      uploadedUrl = await uploadImage(blob, props.userId || 'abc', `faceswap-result-${index + 1}`)
+    } catch (uploadErr) {
+      faceSwapLogoDebug('uploadImage threw (顯示仍用 blob，含 logo)', { stepLabel, message: uploadErr?.message })
     }
 
+    if (uploadedUrl) {
+      brandedUploadedUrls.value[objectUrl] = uploadedUrl
+      faceSwapLogoDebug('uploadImage OK', { stepLabel, publicUrl: previewUrl(uploadedUrl) })
+    } else {
+      faceSwapLogoDebug('uploadImage returned null（未設定上傳 URL 或後端未回圖片網址）', { stepLabel })
+    }
+
+    faceSwapLogoDebug('display blob URL', { stepLabel, objectUrl: previewUrl(objectUrl) })
     return objectUrl
   }
 
   try {
-    return await tryComposeAndUpload(buildProcessedImageUrl(imageUrl))
+    const processed = buildProcessedImageUrl(imageUrl)
+    faceSwapLogoDebug('try pipeline: imageProcess proxy first', { processed: previewUrl(processed) })
+    return await tryComposeAndUpload(processed, 'processed-proxy')
   } catch (processedError) {
     console.warn('⚠️ 含 Logo 圖片處理失敗，改用原始圖片重試:', processedError)
-    return tryComposeAndUpload(imageUrl)
+    faceSwapLogoDebug('fallback pipeline: raw task image URL', { raw: previewUrl(imageUrl) })
+    return tryComposeAndUpload(imageUrl, 'raw-source')
   }
 }
 
@@ -460,14 +487,36 @@ async function handleTaskStatus(data) {
           try {
             const brandedUrl = await buildBrandedImageUrl(imageUrl, index)
             brandedImageFlags.value[brandedUrl] = true
+            faceSwapLogoDebug('branding OK', {
+              index,
+              displayIsBlob: typeof brandedUrl === 'string' && brandedUrl.startsWith('blob:'),
+              overlayLogoHidden: true,
+              url: previewUrl(brandedUrl)
+            })
             return brandedUrl
           } catch (error) {
             console.error('❌ 處理含 Logo 圖片時發生錯誤:', error)
-            return buildProcessedImageUrl(imageUrl)
+            const fallback = buildProcessedImageUrl(imageUrl)
+            faceSwapLogoDebug('branding FAILED → fallback（圖檔本身無 logo，應靠疊圖層）', {
+              index,
+              message: error?.message,
+              fallback: previewUrl(fallback),
+              overlayLogoExpected: true
+            })
+            return fallback
           }
         }))
 
         generatedImages.value = processedImages
+        faceSwapLogoDebug('generatedImages 已設定', {
+          count: processedImages.length,
+          items: processedImages.map((u, i) => ({
+            i,
+            kind: typeof u === 'string' && u.startsWith('blob:') ? 'blob(含 canvas logo)' : 'remote',
+            url: previewUrl(u),
+            showOverlayLogo: !brandedImageFlags.value[u]
+          }))
+        })
       }
       break
       
@@ -532,6 +581,14 @@ async function downloadToOfficial() {
     }
 
     const uploadedBrandedUrl = brandedUploadedUrls.value[displayImageUrl]
+    faceSwapLogoDebug('downloadToOfficial', {
+      imageIndex,
+      displaySrcKind:
+        typeof displayImageUrl === 'string' && displayImageUrl.startsWith('blob:') ? 'blob' : 'remote',
+      hasPreUploadedBranded: Boolean(uploadedBrandedUrl),
+      preUploaded: uploadedBrandedUrl ? previewUrl(uploadedBrandedUrl) : null
+    })
+
     if (uploadedBrandedUrl) {
       loadingMessage.value = '正在發送到官方帳號...'
       loadingSubMessage.value = '請稍候'
@@ -549,12 +606,14 @@ async function downloadToOfficial() {
     loadingMessage.value = '正在處理圖片...'
     loadingSubMessage.value = '請稍候'
 
+    faceSwapLogoDebug('downloadToOfficial → 走截圖後上傳（無 pre-upload 對應）')
     const canvas = await captureScreenshot(targetContainer, {
       padding: 0,
       scaleFactor: 1,
       backgroundColor: null
     })
     const blob = await compressImage(canvas)
+    faceSwapLogoDebug('screenshot blob', { size: blob?.size })
 
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     const forceUploadOnLocal = Boolean(window.endpoint?.forceUploadOnLocal)

@@ -1,3 +1,9 @@
+function composeDebug(...args) {
+  if (typeof window !== 'undefined' && window.endpoint?.debug) {
+    console.log('[composeImageWithLogo]', ...args)
+  }
+}
+
 function resolveBaseURL() {
   if (typeof window !== 'undefined' && window.endpoint && window.endpoint.baseURL) {
     return window.endpoint.baseURL
@@ -59,9 +65,27 @@ export async function composeImageWithLogo({
   marginPx = 20,
   logoWidthRatio = 0.15
 }) {
-  const base = await fetchAsBlobUrl(baseImageUrl)
+  const basePreview =
+    typeof baseImageUrl === 'string' ? `${baseImageUrl.slice(0, 140)}${baseImageUrl.length > 140 ? '…' : ''}` : baseImageUrl
+  composeDebug('start', { basePreview, logoPreview: typeof logoUrl === 'string' ? logoUrl.slice(0, 120) : logoUrl })
+
+  let base
   try {
-    const [baseImg, logoImg] = await Promise.all([loadImage(base.blobUrl), loadImage(logoUrl)])
+    base = await fetchAsBlobUrl(baseImageUrl)
+  } catch (e) {
+    composeDebug('fetchAsBlobUrl failed', { message: e?.message, basePreview })
+    throw e
+  }
+
+  try {
+    let baseImg
+    let logoImg
+    try {
+      ;[baseImg, logoImg] = await Promise.all([loadImage(base.blobUrl), loadImage(logoUrl)])
+    } catch (e) {
+      composeDebug('loadImage failed', { message: e?.message })
+      throw e
+    }
 
     const canvas = document.createElement('canvas')
     canvas.width = baseImg.naturalWidth || baseImg.width
@@ -82,6 +106,14 @@ export async function composeImageWithLogo({
 
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))), 'image/png', 1.0)
+    })
+
+    composeDebug('done', {
+      canvasW: canvas.width,
+      canvasH: canvas.height,
+      logoW,
+      logoH,
+      blobSize: blob?.size
     })
 
     return blob
