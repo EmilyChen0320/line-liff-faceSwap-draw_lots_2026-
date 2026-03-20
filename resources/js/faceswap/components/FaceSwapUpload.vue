@@ -487,6 +487,19 @@ onUnmounted(() => {
   display: none !important;
 }
 
+.upload-dropzone * {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.upload-dropzone *::before,
+.upload-dropzone *::after {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 .upload-preview-wrap {
   border: none !important;
   outline: none !important;
