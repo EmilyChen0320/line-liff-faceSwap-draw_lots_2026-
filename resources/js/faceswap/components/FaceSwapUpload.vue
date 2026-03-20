@@ -100,8 +100,9 @@
           <!-- Upload Area：虛線邊框 + 淺紫底色 -->
           <div class="mb-6">
             <div
-              class="flex h-[200px] flex-col items-center justify-center gap-5 cursor-pointer transition-colors"
-              style="border-radius: 12px; border: 3.5px dashed var(--Core-Purple-600, #674598); background: var(--Core-Purple-300, #BCA9D1);"
+              class="upload-dropzone flex h-[200px] flex-col items-center justify-center gap-5 cursor-pointer transition-colors"
+              :class="{ 'has-image': !!uploadedImage }"
+              style="border-radius: 12px; background: var(--Core-Purple-300, #BCA9D1);"
               @click="triggerFileUpload"
               @dragover.prevent
               @drop.prevent="handleDrop"
@@ -461,3 +462,16 @@ onUnmounted(() => {
   }
 });
 </script>
+
+<style scoped>
+.upload-dropzone {
+  border: 3.5px dashed var(--Core-Purple-600, #674598) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.upload-dropzone.has-image {
+  border-style: solid !important;
+  border-color: transparent !important;
+}
+</style>
