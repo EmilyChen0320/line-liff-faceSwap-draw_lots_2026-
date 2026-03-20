@@ -104,7 +104,7 @@
               :style="{
                 borderRadius: '12px',
                 background: 'var(--Core-Purple-300, #BCA9D1)',
-                border: '2px dashed var(--Core-Purple-600, #674598)'
+                border: 'none'
               }"
               @click="triggerFileUpload"
               @dragover.prevent
@@ -468,8 +468,23 @@ onUnmounted(() => {
 
 <style scoped>
 .upload-dropzone {
+  position: relative;
+  border: none !important;
   outline: none !important;
   box-shadow: none !important;
+}
+
+.upload-dropzone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 2px dashed var(--Core-Purple-600, #674598);
+  pointer-events: none;
+}
+
+.upload-dropzone::after {
+  display: none !important;
 }
 
 .upload-preview-wrap {
