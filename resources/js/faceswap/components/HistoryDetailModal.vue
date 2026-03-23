@@ -91,7 +91,7 @@
       </div>
 
       <!-- Action Buttons -->
-      <div class="px-5 py-8">
+      <div class="px-5 pb-8">
         <div class="flex justify-center gap-3 mb-8">
           <!-- Regenerate Button -->
           <button 

@@ -89,17 +89,8 @@
       </div>
       <!-- Main Content -->
       <div class="flex-1">
-          <!-- 載入狀態 -->
-          <div v-if="isLoading" class="flex flex-col items-center justify-center h-60">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#BCA9D1] mb-4"></div>
-            <div class="text-[#BCA9D1] text-center">
-              <div class="text-lg font-bold mb-2">{{ loadingMessage }}</div>
-              <div class="text-sm">{{ loadingSubMessage }}</div>
-            </div>
-          </div>
-          
           <!-- 錯誤狀態 -->
-          <div v-else-if="error" class="flex flex-col items-center justify-center h-60">
+          <div v-if="error" class="flex flex-col items-center justify-center h-60">
             <div class="text-red-400 text-center">
               <div class="text-lg font-bold mb-2">生成失敗</div>
               <div class="text-sm mb-4">{{ error }}</div>
@@ -111,11 +102,22 @@
               </button>
             </div>
           </div>
+
+          <!-- 單一深藍 loading 畫面 -->
+          <div v-else-if="isGeneratingView" class="px-4">
+            <div class="w-full h-60 bg-gray-700 rounded-md flex items-center justify-center">
+              <div class="text-[#BCA9D1] text-center">
+                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[#BCA9D1] mb-4 mx-auto"></div>
+                <div class="text-lg font-bold mb-2">{{ loadingMessage }}</div>
+                <div class="text-sm">{{ loadingSubMessage }}</div>
+              </div>
+            </div>
+          </div>
           
           <!-- 結果內容 -->
-          <div v-else-if="taskResult" class="space-y-6 px-4">
+          <div v-else-if="taskResult && generatedImages.length > 0" class="w-full px-4">
             <!-- Result Image -->
-            <div v-if="generatedImages.length > 0">
+            <div class="mb-4">
               <div v-for="(image, index) in generatedImages" :key="index" class="mb-4">
                 <div 
                   class="relative cursor-pointer"
@@ -131,12 +133,6 @@
                 <div v-if="imageLoadErrors[image]" class="text-center text-red-400 text-sm mt-2">
                   ⚠️ 圖片載入失敗，請檢查網路連線
                 </div>
-              </div>
-            </div>
-            <div v-else class="w-full h-60 bg-gray-700 rounded-md flex items-center justify-center">
-              <div class="text-[#BCA9D1] text-center">
-                <div class="text-lg font-bold mb-2">生成中...</div>
-                <div class="text-sm">請稍候，正在處理您的圖片</div>
               </div>
             </div>
           </div>
@@ -196,7 +192,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import FaceSwapHistory from './FaceSwapHistory.vue'
 import UsageCounter from './UsageCounter.vue'
 import { roadshowService } from '../../services/roadshowService.js'
@@ -230,6 +226,7 @@ const showHistory = ref(false)
 
 // 任務相關狀態
 const isLoading = ref(false)
+const hasInitializedStatus = ref(false)
 const error = ref(null)
 const taskResult = ref(null)
 const generatedImages = ref([])
@@ -243,6 +240,19 @@ const loadingSubMessage = ref('請稍候')
 
 // 下載相關狀態
 const isDownloading = ref(false)
+
+const isGeneratingView = computed(() => {
+  if (error.value || generatedImages.value.length > 0) {
+    return false
+  }
+
+  if (isLoading.value) {
+    return true
+  }
+
+  const status = taskResult.value?.status
+  return status === 'pending' || status === 'processing' || status === 'completed'
+})
 
 // 顯示訊息函數
 function showMessage(message, type = 'info') {
@@ -324,10 +334,14 @@ async function checkTaskStatus() {
   }
   
   try {
-    isLoading.value = true
+    if (!hasInitializedStatus.value) {
+      isLoading.value = true
+    }
     error.value = null
-    loadingMessage.value = '檢查任務狀態...'
-    loadingSubMessage.value = '請稍候'
+    if (!taskResult.value) {
+      loadingMessage.value = '檢查任務狀態...'
+      loadingSubMessage.value = '請稍候'
+    }
     
     const normalizedTaskId = String(props.taskId)
     const result = await roadshowService.checkTaskStatus(normalizedTaskId)
@@ -349,7 +363,10 @@ async function checkTaskStatus() {
     error.value = '網路錯誤，請檢查連線'
     console.error('❌ 檢查任務狀態時發生錯誤:', err)
   } finally {
-    isLoading.value = false
+    if (!hasInitializedStatus.value) {
+      isLoading.value = false
+      hasInitializedStatus.value = true
+    }
   }
 }
 

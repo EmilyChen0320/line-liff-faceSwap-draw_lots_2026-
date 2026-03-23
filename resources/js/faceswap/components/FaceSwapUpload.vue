@@ -68,9 +68,9 @@
     <div class="flex-1 flex flex-col max-w-md mx-auto w-full px-5">
       <!-- Selected Template Image -->
       <div class="mb-8">
-        <div v-if="props.selectedTemplate" class="w-full h-[400px]">
+        <div v-if="props.selectedTemplate" class="w-full h-[400px] rounded-md overflow-hidden">
           <img
-            class="w-full h-full object-contain rounded-md"
+            class="w-full h-full object-cover"
             :src="getTemplateImage(props.selectedTemplate)"
             :alt="getTemplateName(props.selectedTemplate)"
           />
