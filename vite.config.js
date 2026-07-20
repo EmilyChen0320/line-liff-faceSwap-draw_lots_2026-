@@ -32,9 +32,9 @@ export default defineConfig({
                     if (/\.(otf|ttf|woff|woff2|eot)$/.test(assetInfo.name)) {
                         return 'fonts/[name].[hash][extname]'
                     }
-                    // 圖片文件放在 images 目錄
+                    // 圖片文件放在活動素材目錄
                     if (/\.(png|jpe?g|gif|svg|webp|ico)$/.test(assetInfo.name)) {
-                        return 'images/fancy_frontier/[name].[hash][extname]'
+                        return 'images/GMATAM/[name].[hash][extname]'
                     }
                     return 'assets/[name].[hash][extname]'
                 }
