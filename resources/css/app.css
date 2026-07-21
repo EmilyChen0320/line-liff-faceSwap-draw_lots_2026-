@@ -13,7 +13,7 @@
     font-family: 'Noto Sans TC', -apple-system, Roboto, Helvetica, sans-serif;
   }
 
-  /* 全站預設使用傳藝金曲設計字體 */
+  /* 全站預設使用活動字體 */
   body {
     font-family: 'GenRyuMin2 TW', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background-color: #070103;
@@ -22,7 +22,7 @@
 @font-face {
   font-family: 'GenRyuMin2 TW';
   /* 使用相對路徑，讓 Vite 處理並應用 hash */
-  src: url('../images/GMATAM/GenRyuMin2 TW B.otf') format('opentype');
+  src: url('../assets/fonts/GenRyuMin2 TW B.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
