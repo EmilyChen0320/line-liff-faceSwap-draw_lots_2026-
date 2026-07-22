@@ -33,10 +33,7 @@ export const gmatamConfig = {
     ]
   },
   api: {
-    aliBaseURL: 'http://nurse.5gao.ai:8067',
-    imageStudioBasePath: '/api',
-    historyEndpoint: '/api/history',
-    templateGenerateEndpoint: '/api/templates/:templateId/generate'
+    faceSwapPath: '/face-swap'
   }
 }
 

@@ -137,11 +137,12 @@ async function pollGeneration() {
     if (record.status === 'failed') {
       isLoading.value = false
       errorMessage.value = '生成失敗，請稍後再試'
+      emit('completed', record)
       return
     }
 
     loadingMessage.value = record.status === 'pending' ? '任務排隊中' : '生成進行中'
-    pollTimer = setTimeout(pollGeneration, 2500)
+    pollTimer = setTimeout(pollGeneration, 3000)
   } catch (error) {
     console.error('輪詢生成狀態失敗', error)
     isLoading.value = false
@@ -172,7 +173,9 @@ function loadInitialState() {
   }
 
   result.value = null
-  pollGeneration()
+  isLoading.value = true
+  loadingMessage.value = '生成進行中'
+  pollTimer = setTimeout(pollGeneration, 3000)
 }
 
 watch(() => [props.taskId, props.historyItem], loadInitialState, { immediate: true })

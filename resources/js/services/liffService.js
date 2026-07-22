@@ -204,7 +204,12 @@ class LiffService {
     if (!this.isInitialized || typeof liff === 'undefined') {
       return false
     }
-    return liff.isLoggedIn()
+
+    try {
+      return liff.isLoggedIn()
+    } catch {
+      return false
+    }
   }
 
   /**
@@ -238,6 +243,22 @@ class LiffService {
    */
   getUserId() {
     return this.userId
+  }
+
+  /**
+   * 獲取 LIFF access token
+   * @returns {string|null} access token 或 null
+   */
+  getAccessToken() {
+    try {
+      if (!this.isInitialized || typeof liff === 'undefined' || !this.isLoggedIn()) {
+        return null
+      }
+
+      return liff.getAccessToken()
+    } catch {
+      return null
+    }
   }
 
   /**
