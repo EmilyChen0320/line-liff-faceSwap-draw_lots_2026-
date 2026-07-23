@@ -172,14 +172,28 @@ async function generateFaceSwap() {
 
 function getGenerateErrorMessage(error) {
   const fallback = '生成失敗，請稍後再試'
-  const rawMessage = error?.message || ''
+  const payload = error?.payload
+  if (payload) {
+    return payload.result?.message ||
+      payload.result?.error ||
+      payload.message ||
+      payload.error ||
+      fallback
+  }
+
+  const rawMessage = error?.body || error?.message || ''
   if (!rawMessage) return fallback
 
   try {
     const data = JSON.parse(rawMessage)
-    return data.result?.message || data.message || fallback
+    return data.result?.message ||
+      data.result?.error ||
+      data.message ||
+      data.error ||
+      fallback
   } catch {
-    return rawMessage.startsWith('HTTP ') ? fallback : rawMessage
+    if (error?.status) return `生成失敗：HTTP ${error.status} ${rawMessage || error.statusText || ''}`.trim()
+    return rawMessage
   }
 }
 

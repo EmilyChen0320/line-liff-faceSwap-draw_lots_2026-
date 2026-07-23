@@ -136,7 +136,7 @@ async function pollGeneration() {
 
     if (record.status === 'failed') {
       isLoading.value = false
-      errorMessage.value = '生成失敗，請稍後再試'
+      errorMessage.value = getResultErrorMessage(record)
       emit('completed', record)
       return
     }
@@ -146,7 +146,34 @@ async function pollGeneration() {
   } catch (error) {
     console.error('輪詢生成狀態失敗', error)
     isLoading.value = false
-    errorMessage.value = '生成失敗，請稍後再試'
+    errorMessage.value = getResultErrorMessage(error)
+  }
+}
+
+function getResultErrorMessage(error) {
+  const fallback = '生成失敗，請稍後再試'
+  const payload = error?.payload
+  if (payload) {
+    return payload.result?.message ||
+      payload.result?.error ||
+      payload.message ||
+      payload.error ||
+      fallback
+  }
+
+  const directMessage = error?.error_message || error?.message || error?.original?.message || error?.original?.error_message || ''
+  if (!directMessage) return fallback
+
+  try {
+    const data = JSON.parse(directMessage)
+    return data.result?.message ||
+      data.result?.error ||
+      data.message ||
+      data.error ||
+      fallback
+  } catch {
+    if (error?.status) return `生成失敗：HTTP ${error.status} ${directMessage || error.statusText || ''}`.trim()
+    return directMessage
   }
 }
 

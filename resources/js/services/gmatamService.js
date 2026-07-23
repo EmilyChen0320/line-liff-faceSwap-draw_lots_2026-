@@ -90,7 +90,18 @@ async function requestJson(url, options = {}) {
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    throw new Error(text || `HTTP ${response.status}: ${response.statusText}`)
+    const error = new Error(text || `HTTP ${response.status}: ${response.statusText}`)
+    error.status = response.status
+    error.statusText = response.statusText
+    error.body = text
+
+    try {
+      error.payload = JSON.parse(text)
+    } catch {
+      error.payload = null
+    }
+
+    throw error
   }
 
   return response.json()
