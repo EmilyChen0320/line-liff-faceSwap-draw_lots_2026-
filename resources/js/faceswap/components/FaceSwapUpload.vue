@@ -42,9 +42,9 @@
     </section>
 
     <div v-if="isGenerating" class="fixed inset-0 z-50 grid place-items-center bg-black/60 px-6">
-      <div class="w-full max-w-[276px] rounded-md border border-[#f6c771]/50 bg-white p-6 text-center text-[#261328]">
-        <p class="mb-3 text-lg font-bold">生成進行中</p>
-        <p class="text-sm leading-6">如使用人數眾多可能會花費較多時間，可以稍後再回來查看唷！</p>
+      <div class="upload-progress-panel">
+        <p class="upload-progress-text">上傳中</p>
+        <p class="upload-progress-text">請勿關閉視窗</p>
       </div>
     </div>
   </main>
@@ -208,3 +208,30 @@ onUnmounted(() => {
   revokePreview(pastPreview.value)
 })
 </script>
+
+<style scoped>
+.upload-progress-text {
+  color: #000;
+  text-align: center;
+  -webkit-text-stroke-width: 0.3px;
+  -webkit-text-stroke-color: #000;
+  font-family: 'GenRyuMin2 TW', system-ui, sans-serif;
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 24px;
+  letter-spacing: 0.36px;
+}
+
+.upload-progress-panel {
+  display: flex;
+  width: 194px;
+  height: 115px;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-direction: column;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.8);
+}
+</style>

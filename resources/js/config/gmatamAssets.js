@@ -21,8 +21,6 @@ import step2Inactive from '../../images/GMATAM/Step 2 上傳照片_未完成.png
 import step3Active from '../../images/GMATAM/Step 3 生成圖片.png'
 import step3Inactive from '../../images/GMATAM/Step 3 生成圖片_未完成.png'
 import stepLine from '../../images/GMATAM/Step Line.png'
-import containerUploading from '../../images/GMATAM/Container_Uploading.png'
-import containerGenerating from '../../images/GMATAM/Container_Generating.png'
 import statusContainer from '../../images/GMATAM/StatusContainer.png'
 import ogImage from '../../images/GMATAM/OGImage.png'
 
@@ -50,8 +48,6 @@ export const gmatamAssets = {
   step3Active,
   step3Inactive,
   stepLine,
-  containerUploading,
-  containerGenerating,
   statusContainer,
   ogImage
 }

@@ -54,7 +54,7 @@
       v-else-if="currentStep === 'history'"
       :userId="userId"
       :userUsage="userUsage"
-      @back="currentStep = 'home'"
+      @back="goBackFromHistory"
       @view-result="handleHistoryResult"
       @regenerate="handleRegenerate"
     />
@@ -79,6 +79,12 @@ const selectedGender = ref('')
 const generationId = ref('')
 const selectedHistoryItem = ref(null)
 const authBlocked = ref(false)
+const historyReturnState = ref({
+  step: 'home',
+  selectedHistoryItem: null,
+  generationId: '',
+  selectedGender: ''
+})
 
 async function initializeLiff() {
   const result = await liffService.initializeLiff()
@@ -159,8 +165,22 @@ function handleRegenerate() {
 
 async function goToHistory() {
   await refreshUserUsage()
+  historyReturnState.value = {
+    step: currentStep.value,
+    selectedHistoryItem: selectedHistoryItem.value,
+    generationId: generationId.value,
+    selectedGender: selectedGender.value
+  }
   selectedHistoryItem.value = null
   currentStep.value = 'history'
+}
+
+function goBackFromHistory() {
+  const returnState = historyReturnState.value
+  selectedHistoryItem.value = returnState.selectedHistoryItem
+  generationId.value = returnState.generationId
+  selectedGender.value = returnState.selectedGender
+  currentStep.value = returnState.step || 'home'
 }
 
 function handleHistoryResult(item) {
