@@ -101,14 +101,14 @@ function revokePreview(preview) {
 
 function validateFile(file) {
   if (!file) return '請重新選擇照片'
-  if (!isAcceptedImageType(file)) return '不支援此圖片格式，請上傳 JPG、PNG、HEIC 或 HEIF 檔案'
+  if (!isAcceptedImageType(file)) return '不支援此檔案，請上傳圖片檔案'
   if (file.size > config.upload.maxFileSizeMb * 1024 * 1024) return '檔案超過上限，請重新上傳'
   return ''
 }
 
 function isAcceptedImageType(file) {
   const normalizedName = file.name?.toLowerCase() || ''
-  const hasAcceptedMimeType = config.upload.acceptedMimeTypes.includes(file.type)
+  const hasAcceptedMimeType = file.type?.startsWith('image/')
   const hasAcceptedExtension = config.upload.acceptedExtensions.some(extension => normalizedName.endsWith(extension))
 
   return hasAcceptedMimeType || hasAcceptedExtension
