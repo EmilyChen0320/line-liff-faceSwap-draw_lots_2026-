@@ -172,6 +172,8 @@ async function generateFaceSwap() {
 
 function getGenerateErrorMessage(error) {
   const fallback = '生成失敗，請稍後再試'
+  if (error?.status === 413) return '上傳檔案太大'
+
   const payload = error?.payload
   if (payload) {
     return payload.result?.message ||
