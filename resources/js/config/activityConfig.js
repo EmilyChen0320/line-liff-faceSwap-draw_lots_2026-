@@ -19,8 +19,8 @@ export const gmatamConfig = {
   ],
   upload: {
     maxFileSizeMb: 10,
-    acceptedMimeTypes: ['image/jpeg', 'image/png'],
-    acceptedExtensions: ['.jpg', '.jpeg', '.png']
+    acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/heic', 'image/heif'],
+    acceptedExtensions: ['.jpg', '.jpeg', '.png', '.heic', '.heif']
   },
   copy: {
     heroTitle: '我與我同臺',
