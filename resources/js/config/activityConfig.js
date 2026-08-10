@@ -7,13 +7,13 @@ export const gmatamConfig = {
     {
       key: 'male',
       label: '男生',
-      templateId: 'id1',
+      templateId: 1,
       outfit: '西裝'
     },
     {
       key: 'female',
       label: '女生',
-      templateId: 'id2',
+      templateId: 2,
       outfit: '禮服'
     }
   ],
