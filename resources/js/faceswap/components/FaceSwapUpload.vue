@@ -57,6 +57,7 @@ import StepIndicator from './shared/StepIndicator.vue'
 import UploadSlot from './shared/UploadSlot.vue'
 import { getGenderOption, gmatamConfig as config, isLocalLimitBypassEnabled } from '@/config/activityConfig'
 import { gmatamService } from '@/services/gmatamService'
+import { optimizeImageFile } from '@/faceswap/utils/imageOptimizer'
 
 const props = defineProps({
   selectedTemplate: {
@@ -84,6 +85,7 @@ const pastPhoto = ref(null)
 const currentPreview = ref('')
 const pastPreview = ref('')
 const isGenerating = ref(false)
+const isPreparingPhoto = ref(false)
 const errorMessage = ref('')
 
 const isAtLimit = computed(() => !isLocalLimitBypassEnabled() && props.userUsage >= config.maxUsageLimit)
@@ -92,7 +94,7 @@ const hasRequiredPhotos = computed(() => {
   return Boolean(currentPhoto.value && pastPhoto.value && currentPreview.value && pastPreview.value)
 })
 const canGenerate = computed(() => {
-  return Boolean(hasRequiredPhotos.value && selectedTemplateKey.value && !isAtLimit.value && !isGenerating.value)
+  return Boolean(hasRequiredPhotos.value && selectedTemplateKey.value && !isAtLimit.value && !isGenerating.value && !isPreparingPhoto.value)
 })
 
 function revokePreview(preview) {
@@ -102,7 +104,11 @@ function revokePreview(preview) {
 function validateFile(file) {
   if (!file) return '請重新選擇照片'
   if (!isAcceptedImageType(file)) return '不支援此檔案，請上傳圖片檔案'
-  if (file.size > config.upload.maxFileSizeMb * 1024 * 1024) return '檔案超過上限，請重新上傳'
+  return ''
+}
+
+function validateFileSize(file) {
+  if (file.size > config.upload.maxFileSizeMb * 1024 * 1024) return '上傳檔案太大'
   return ''
 }
 
@@ -114,24 +120,37 @@ function isAcceptedImageType(file) {
   return hasAcceptedMimeType || hasAcceptedExtension
 }
 
-function handleSelect(type, file) {
+async function handleSelect(type, file) {
   const validationMessage = validateFile(file)
   if (validationMessage) {
     errorMessage.value = validationMessage
     return
   }
 
-  errorMessage.value = ''
-  const preview = URL.createObjectURL(file)
+  try {
+    isPreparingPhoto.value = true
+    errorMessage.value = ''
+    const optimizedFile = await optimizeImageFile(file, config.upload.optimize)
+    const sizeMessage = validateFileSize(optimizedFile)
 
-  if (type === 'current') {
-    revokePreview(currentPreview.value)
-    currentPhoto.value = file
-    currentPreview.value = preview
-  } else {
-    revokePreview(pastPreview.value)
-    pastPhoto.value = file
-    pastPreview.value = preview
+    if (sizeMessage) {
+      errorMessage.value = sizeMessage
+      return
+    }
+
+    const preview = URL.createObjectURL(optimizedFile)
+
+    if (type === 'current') {
+      revokePreview(currentPreview.value)
+      currentPhoto.value = optimizedFile
+      currentPreview.value = preview
+    } else {
+      revokePreview(pastPreview.value)
+      pastPhoto.value = optimizedFile
+      pastPreview.value = preview
+    }
+  } finally {
+    isPreparingPhoto.value = false
   }
 }
 

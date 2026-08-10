@@ -48,6 +48,7 @@
       @regenerate="handleRegenerate"
       @show-history="goToHistory"
       @completed="handleGenerationCompleted"
+      @download="goToDownload"
     />
 
     <FaceSwapHistory
@@ -57,6 +58,12 @@
       @back="goBackFromHistory"
       @view-result="handleHistoryResult"
       @regenerate="handleRegenerate"
+    />
+
+    <FaceSwapDownload
+      v-else-if="currentStep === 'download'"
+      :image-url="downloadImageUrl"
+      @back="goBackFromDownload"
     />
   </div>
 </template>
@@ -68,6 +75,7 @@ import FaceSwapTemplateSelection from './components/FaceSwapTemplateSelection.vu
 import FaceSwapUpload from './components/FaceSwapUpload.vue'
 import FaceSwapResult from './components/FaceSwapResult.vue'
 import FaceSwapHistory from './components/FaceSwapHistory.vue'
+import FaceSwapDownload from './components/FaceSwapDownload.vue'
 import { liffService } from '../services/liffService.js'
 import { gmatamService } from '../services/gmatamService.js'
 
@@ -77,6 +85,7 @@ const userName = ref('')
 const userUsage = ref(0)
 const selectedGender = ref('')
 const generationId = ref('')
+const downloadImageUrl = ref('')
 const selectedHistoryItem = ref(null)
 const authBlocked = ref(false)
 const historyReturnState = ref({
@@ -187,6 +196,16 @@ function handleHistoryResult(item) {
   selectedHistoryItem.value = item
   generationId.value = String(item?.generation_id || item?.id || '')
   selectedGender.value = item?.gender || selectedGender.value
+  currentStep.value = 'result'
+}
+
+function goToDownload(imageUrl) {
+  downloadImageUrl.value = imageUrl || ''
+  currentStep.value = 'download'
+}
+
+function goBackFromDownload() {
+  downloadImageUrl.value = ''
   currentStep.value = 'result'
 }
 

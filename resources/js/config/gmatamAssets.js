@@ -23,6 +23,7 @@ import step3Inactive from '../../images/GMATAM/Step 3 生成圖片_未完成.png
 import stepLine from '../../images/GMATAM/Step Line.png'
 import statusContainer from '../../images/GMATAM/StatusContainer.png'
 import ogImage from '../../images/GMATAM/OGImage.png'
+import downloadGuide from '../../images/GMATAM/download-guide.png'
 
 export const gmatamAssets = {
   homeImage,
@@ -49,5 +50,6 @@ export const gmatamAssets = {
   step3Inactive,
   stepLine,
   statusContainer,
-  ogImage
+  ogImage,
+  downloadGuide
 }

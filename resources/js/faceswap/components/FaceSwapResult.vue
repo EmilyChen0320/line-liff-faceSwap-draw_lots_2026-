@@ -51,15 +51,6 @@
         </button>
       </div>
 
-      <!-- <div v-if="showDownloadGuide" class="mt-5 rounded-md border border-[#f6c771]/40 bg-black/24 p-4 text-sm leading-6 text-white">
-        <p class="font-bold text-[#f7d99c]">怎麼開啟瀏覽器下載圖片？</p>
-        <template v-if="isAndroid">
-          <p>1. 點擊右下角三個點</p>
-          <p>2. 點擊在瀏覽器中開啟，進入後長按圖片下載</p>
-        </template>
-        <p v-else>長按圖片下載</p>
-      </div> -->
-
       <button class="history-link-text mt-7 w-full text-center text-sm font-bold" @click="$emit('show-history')">圖片生成紀錄</button>
     </section>
   </main>
@@ -95,21 +86,16 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['back', 'regenerate', 'show-history', 'completed'])
+const emit = defineEmits(['back', 'regenerate', 'show-history', 'completed', 'download'])
 
 const isLoading = ref(false)
 const loadingMessage = ref('生成進行中')
 const errorMessage = ref('')
 const result = ref(null)
-const showDownloadGuide = ref(false)
 let pollTimer = null
 
 const resultImage = computed(() => result.value?.image || props.historyItem?.image || '')
 const isAtLimit = computed(() => !isLocalLimitBypassEnabled() && props.userUsage >= config.maxUsageLimit)
-const isAndroid = computed(() => {
-  if (typeof liff !== 'undefined' && liff.getOS) return liff.getOS() === 'android'
-  return /Android/i.test(navigator.userAgent)
-})
 
 function stopPolling() {
   if (pollTimer) {
@@ -181,19 +167,12 @@ function getResultErrorMessage(error) {
 
 function downloadImage() {
   if (!resultImage.value) return
-  showDownloadGuide.value = true
-
-  if (typeof liff !== 'undefined' && liff.openWindow) {
-    liff.openWindow({ url: resultImage.value, external: false })
-  } else {
-    window.open(resultImage.value, '_blank')
-  }
+  emit('download', resultImage.value)
 }
 
 function loadInitialState() {
   stopPolling()
   errorMessage.value = ''
-  showDownloadGuide.value = false
 
   if (props.historyItem) {
     result.value = props.historyItem
