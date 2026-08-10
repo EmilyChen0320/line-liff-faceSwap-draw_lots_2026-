@@ -7,13 +7,13 @@ export const gmatamConfig = {
     {
       key: 'male',
       label: '男生',
-      templateId: 12,
+      templateId: 'id1',
       outfit: '西裝'
     },
     {
       key: 'female',
       label: '女生',
-      templateId: 13,
+      templateId: 'id2',
       outfit: '禮服'
     }
   ],
@@ -37,7 +37,8 @@ export const gmatamConfig = {
       '僅支援人像照片，請勿上傳風景、動物或其他非人物圖片',
       '請確保臉部五官完整可見，避免口罩、手部、頭髮等遮擋',
       '避免模糊、晃動或低解析度圖片，以免影響生成品質'
-    ]
+    ],
+    resultDisclaimer: 'AI生成結果可能因模型與人物輪廓而略有差異'
   },
   api: {
     faceSwapPath: '/face-swap'

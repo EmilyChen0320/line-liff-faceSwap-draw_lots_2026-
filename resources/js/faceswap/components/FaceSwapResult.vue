@@ -32,6 +32,10 @@
         </div>
       </div>
 
+      <p v-if="resultImage" class="mt-5 text-center text-[13px] font-bold leading-6 text-white/72">
+        {{ config.copy.resultDisclaimer }}
+      </p>
+
       <div class="mt-8 grid grid-cols-2 gap-4">
         <button
           class="asset-button regenerate-button h-10"
